@@ -1,0 +1,20 @@
+# Include important files in source distribution
+include README.md
+include LICENSE
+include CHANGELOG.md
+include pyproject.toml
+
+# Include example configurations
+recursive-include examples *.yaml *.yml *.py *.ipynb
+
+# Exclude test data from distribution
+recursive-exclude tests/fixtures *.nc *.nc4
+
+# Exclude development files
+exclude .pre-commit-config.yaml
+exclude Dockerfile
+exclude docker-compose.yaml
+exclude Makefile
+
+# Exclude reference scripts (archival code)
+prune reference_scripts
