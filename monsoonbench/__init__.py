@@ -44,7 +44,9 @@ from monsoonbench.data import load
 
 __all__ = [
     "__version__",
-    "DataLoader",
+    "load",
+    "get_registered",
+    "register_loader",
     "DeterministicOnsetMetrics",
     "ProbabilisticOnsetMetrics",
     "ClimatologyOnsetMetrics",
