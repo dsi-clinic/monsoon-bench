@@ -27,7 +27,10 @@ from monsoonbench._version import __version__
 
 # Public API
 from monsoonbench.config import load_config
-from monsoonbench.data import DataLoader
+
+# from monsoonbench.data import DataLoader  # Zhenfei Commented this line out and add the following line
+from .data import load, get_registered, register_loader
+
 from monsoonbench.metrics import (
     ClimatologyOnsetMetrics,
     DeterministicOnsetMetrics,
