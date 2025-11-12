@@ -8,7 +8,7 @@ import os
 import xarray as xr
 
 from monsoonbench.config import get_config
-from monsoonbench.data.loader import DataLoader
+from monsoonbench.data import load
 from monsoonbench.metrics import (
     ClimatologyOnsetMetrics,
     DeterministicOnsetMetrics,
@@ -30,11 +30,12 @@ def main() -> None:
     print(f"MOK filter: {args.mok}")
 
     # Create DataLoader instance
-    data_loader = DataLoader(
-        imd_folder=args.imd_folder,
-        thres_file=args.thres_file,
-        shpfile_path=args.shpfile_path,
-        model_forecast_dir=getattr(args, "model_forecast_dir", None),
+    data_loader = load(
+        name = "imd_rain",
+        root=args.imd_folder,
+        years=args.years,
+        subset={"time": slice("2012-01-01", "2014-12-31")},
+        chunks={"time":64}
     )
 
     # Initialize appropriate metrics class with DataLoader

@@ -37,7 +37,8 @@ from monsoonbench.metrics import (
     ProbabilisticOnsetMetrics,
 )
 from monsoonbench.visualization.spatial import plot_spatial_metrics
-
+from monsoonbench.cli.main import main
+from monsoonbench.data import load
 # from monsoonbench.onset import detect_onset  # TODO: Implement if needed
 # from monsoonbench.visualization import create_scorecard  # TODO: Implement if needed
 
