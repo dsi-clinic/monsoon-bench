@@ -4,9 +4,9 @@ services:
       context: .
       dockerfile: Dockerfile
     volumes:
-      - .:/project
+      - .:/project/src
     environment:
-      REPO_ROOT: /project
+      REPO_ROOT: /project/src
       DATA_DIR: /project/data
       PYTHONPATH: /project/src
     shm_size: '16gb'
