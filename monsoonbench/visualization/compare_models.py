@@ -3,44 +3,26 @@
 This module provides:
 
 1. create_model_comparison_table
-   Build a tidy pandas.DataFrame summarizing key metrics for multiple models
-   using their spatial metric fields.
+   Build a tidy pandas.DataFrame summarizing CMZ MAE, FAR, and Miss Rate
+   for multiple models.
 
-2. plot_model_comparison
-   Create grouped or stacked bar charts from the summary table for quick
-   visual comparison across models.
+2. plot_model_comparison_dual_axis
+   Create a grouped bar chart with a dual y-axis:
+   - Left axis: CMZ MAE (days)
+   - Right axis: CMZ FAR (%) and CMZ Miss Rate (%)
 
-Typical usage:
---------------
->>> from monsoonbench.visualization.compare_models import (
-...     create_model_comparison_table,
-...     plot_model_comparison,
-... )
->>> comparison_df = create_model_comparison_table(
-...     {
-...         "Model_A": spatial_metrics_a,
-...         "Model_B": spatial_metrics_b,
-...     }
-... )
->>> fig, ax = plot_model_comparison(
-...     comparison_df,
-...     metrics=["cmz_mae_mean", "cmz_far"],
-...     style="grouped",
-...     title="CMZ MAE and FAR by Model",
-...     ylabel="Value",
-... )
+3. compare_models
+   Convenience function to create the table and dual-axis plot in one call.
 
-Notes:
-- Expects each spatial_metrics dict to follow the same schema as used in
-  `plot_spatial_metrics`:
-    - "mean_mae": xr.DataArray
+Expected spatial_metrics format (same as CLI/plot_spatial_metrics):
+    - "mean_mae": xr.DataArray (days)
     - "false_alarm_rate": xr.DataArray in [0, 1]
     - "miss_rate": xr.DataArray in [0, 1]
-    - "mae_YYYY": yearly MAE maps used by calculate_mae_stats_across_years
-- Assumes metrics for a given model share a common (lat, lon) grid.
 """
 
 from __future__ import annotations
+
+from typing import Dict, Mapping, Sequence, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -51,14 +33,14 @@ from monsoonbench.spatial.regions import (
     detect_resolution,
     get_cmz_polygon_coords,
 )
-from monsoonbench.visualization import (
+from monsoonbench.visualization.spatial import (
     calculate_cmz_averages,
     calculate_mae_stats_across_years,
 )
 
 __all__ = [
     "create_model_comparison_table",
-    "plot_model_comparison",
+    "plot_model_comparison_dual_axis",
     "compare_models",
 ]
 
@@ -69,14 +51,9 @@ __all__ = [
 
 
 def _validate_spatial_metrics_keys(
-    model_name: str, spatial_metrics: dict[str, xr.DataArray]
+    model_name: str, spatial_metrics: Mapping[str, xr.DataArray]
 ) -> None:
-    """Validate that required keys exist in spatial_metrics for a model.
-
-    Args:
-        model_name: Name of the model being validated.
-        spatial_metrics: Mapping of metric names to DataArray objects.
-    """
+    """Validate that required keys exist in spatial_metrics for a model."""
     required = ["mean_mae", "false_alarm_rate", "miss_rate"]
     missing = [key for key in required if key not in spatial_metrics]
     if missing:
@@ -85,33 +62,34 @@ def _validate_spatial_metrics_keys(
             "Expected at least 'mean_mae', 'false_alarm_rate', and 'miss_rate'.",
         )
 
+def _global_nanmean(arr: np.ndarray) -> float:
+    if np.all(np.isnan(arr)):
+        return float("nan")
+    return float(np.nanmean(arr))
+
 
 def _summarize_single_model(
-    spatial_metrics: dict[str, xr.DataArray],
-) -> dict[str, float]:
-    """Create a consistent summary of metrics for a single model.
-
-    Expected spatial_metrics keys:
-        - "mean_mae": xr.DataArray
-        - "false_alarm_rate": xr.DataArray (0-1)
-        - "miss_rate": xr.DataArray (0-1)
-        - "mae_YYYY": yearly MAE maps (for MAE stats across years)
+    spatial_metrics: Mapping[str, xr.DataArray],
+) -> Dict[str, float]:
+    """Create CMZ summary stats for a single model.
 
     Returns:
-        Dictionary with:
-            - cmz_mae_mean, cmz_mae_se
-            - overall_mae_mean, overall_mae_se
-            - cmz_far, overall_far
-            - cmz_mr, overall_mr
+        - cmz_mae_mean_days: CMZ mean MAE (days)
+        - cmz_mae_se_days:   CMZ MAE standard error (days)
+        - cmz_far_pct:       CMZ mean FAR (%)
+        - cmz_mr_pct:        CMZ mean Miss Rate (%)
+        - overall_mae_mean_days: (optional) domain-wide mean MAE
+        - overall_far_pct:       domain-wide mean FAR
+        - overall_mr_pct:        domain-wide mean MR
     """
     mean_mae = spatial_metrics["mean_mae"]
     far = spatial_metrics["false_alarm_rate"] * 100.0  # %
-    mr = spatial_metrics["miss_rate"] * 100.0  # %
+    mr = spatial_metrics["miss_rate"] * 100.0          # %
 
     lats = mean_mae.lat.to_numpy()
     lons = mean_mae.lon.to_numpy()
 
-    # CMZ geometry
+    # Detect resolution and CMZ polygon
     lat_diff = detect_resolution(lats)
     cmz_coords = get_cmz_polygon_coords(lat_diff)
     polygon_defined = cmz_coords is not None
@@ -121,8 +99,8 @@ def _summarize_single_model(
     else:
         polygon_lon, polygon_lat = None, None
 
-    # MAE statistics (existing helper)
-    cmz_mae_mean, cmz_mae_se, overall_mae_mean, overall_mae_se = (
+    # MAE stats: this helper already computes CMZ + overall
+    cmz_mae_mean, cmz_mae_se, overall_mae_mean, _overall_mae_se = (
         calculate_mae_stats_across_years(
             spatial_metrics=spatial_metrics,
             lons=lons,
@@ -133,11 +111,11 @@ def _summarize_single_model(
         )
     )
 
-    # FAR / MR: overall means
-    overall_far = float(np.nanmean(far.to_numpy()))
-    overall_mr = float(np.nanmean(mr.to_numpy()))
+    # Overall FAR/MR (domain mean)
+    overall_far = _global_nanmean(far.to_numpy().ravel())
+    overall_mr = _global_nanmean(mr.to_numpy().ravel())
 
-    # FAR / MR: CMZ means if polygon available
+    # CMZ FAR/MR via polygon if available
     if polygon_defined and polygon_lon is not None and polygon_lat is not None:
         cmz_far = float(
             calculate_cmz_averages(
@@ -146,7 +124,7 @@ def _summarize_single_model(
                 lats,
                 polygon_lon,
                 polygon_lat,
-            ),
+            )
         )
         cmz_mr = float(
             calculate_cmz_averages(
@@ -155,46 +133,27 @@ def _summarize_single_model(
                 lats,
                 polygon_lon,
                 polygon_lat,
-            ),
+            )
         )
     else:
-        cmz_far = np.nan
-        cmz_mr = np.nan
+        cmz_far = float("nan")
+        cmz_mr = float("nan")
 
     return {
-        "cmz_mae_mean": cmz_mae_mean,
-        "cmz_mae_se": cmz_mae_se,
-        "overall_mae_mean": overall_mae_mean,
-        "overall_mae_se": overall_mae_se,
-        "cmz_far": cmz_far,
-        "overall_far": overall_far,
-        "cmz_mr": cmz_mr,
-        "overall_mr": overall_mr,
+        "cmz_mae_mean_days": cmz_mae_mean,
+        "cmz_mae_se_days": cmz_mae_se,
+        "cmz_far_pct": cmz_far,
+        "cmz_mr_pct": cmz_mr,
+        "overall_mae_mean_days": overall_mae_mean,
+        "overall_far_pct": overall_far,
+        "overall_mr_pct": overall_mr,
     }
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
-
 def create_model_comparison_table(
-    model_spatial_metrics: dict[str, dict[str, xr.DataArray]],
+    model_spatial_metrics: Dict[str, Mapping[str, xr.DataArray]],
 ) -> pd.DataFrame:
-    """Build a tidy comparison table for multiple models.
-
-    Args:
-        model_spatial_metrics:
-            Mapping from model name -> spatial_metrics dict in the same format
-            used by `plot_spatial_metrics`.
-
-    Returns:
-        DataFrame indexed by model name with columns:
-            ["cmz_mae_mean", "cmz_mae_se",
-             "overall_mae_mean", "overall_mae_se",
-             "cmz_far", "overall_far",
-             "cmz_mr", "overall_mr"]
-    """
+    """Build tidy comparison table for multiple models (CMZ + overall)."""
     rows: list[dict[str, float | str]] = []
 
     for model_name, spatial_metrics in model_spatial_metrics.items():
@@ -206,140 +165,154 @@ def create_model_comparison_table(
     comparison_df = pd.DataFrame(rows).set_index("model")
 
     ordered_cols = [
-        "cmz_mae_mean",
-        "cmz_mae_se",
-        "overall_mae_mean",
-        "overall_mae_se",
-        "cmz_far",
-        "overall_far",
-        "cmz_mr",
-        "overall_mr",
+        "cmz_mae_mean_days",
+        "cmz_mae_se_days",
+        "cmz_far_pct",
+        "cmz_mr_pct",
+        "overall_mae_mean_days",
+        "overall_far_pct",
+        "overall_mr_pct",
     ]
-    existing_cols = [col for col in ordered_cols if col in comparison_df.columns]
+    existing_cols = [c for c in ordered_cols if c in comparison_df.columns]
     return comparison_df[existing_cols]
 
-
-def plot_model_comparison(
+def plot_model_comparison_dual_axis(
     comparison_df: pd.DataFrame,
-    metrics: list[str],
-    style: str = "grouped",
-    figsize: tuple[float, float] = (10.0, 6.0),
+    mae_col: str = "cmz_mae_mean_days",      # CMZ MAE
+    mae_err_col: str = "cmz_mae_se_days",    # CMZ SE
+    rate_cols: Sequence[str] = ("cmz_far_pct", "cmz_mr_pct"),
+    figsize: Tuple[float, float] = (10.0, 6.0),
     title: str | None = None,
-    ylabel: str | None = None,
     rotation: int = 0,
-) -> tuple[plt.Figure, plt.Axes]:
-    """Plot a bar chart comparing selected metrics across models.
+) -> Tuple[plt.Figure, Tuple[plt.Axes, plt.Axes]]:
+    """Plot grouped bar chart with dual y-axis (MAE vs FAR/MR)."""
 
-    Args:
-        comparison_df:
-            Output of `create_model_comparison_table` (index = model name).
-        metrics:
-            List of column names from comparison_df to visualize.
-        style:
-            "grouped" -> side-by-side columns for each metric per model.
-            "stacked" -> stacked columns for each model.
-        figsize:
-            Size of the figure in inches (width, height).
-        title:
-            Optional plot title.
-        ylabel:
-            Optional y-axis label.
-        rotation:
-            Rotation (degrees) for x-axis tick labels.
+    # ---- basic checks ----
+    if mae_col not in comparison_df.columns:
+        raise ValueError(f"{mae_col!r} not found in comparison_df columns.")
 
-    Returns:
-        Tuple of (fig, ax): Matplotlib figure and axes.
-    """
-    if not metrics:
-        raise ValueError("At least one metric must be provided for plotting.")
+    missing_rates = [c for c in rate_cols if c not in comparison_df.columns]
+    if missing_rates:
+        raise ValueError(f"Rate metric(s) not found in comparison_df: {missing_rates}")
 
-    missing = [metric for metric in metrics if metric not in comparison_df.columns]
-    if missing:
-        raise ValueError(f"Metrics not found in comparison_df: {missing}")
+    fig, ax_left = plt.subplots(figsize=figsize)
+    ax_right = ax_left.twinx()
 
-    data = comparison_df[metrics]
+    # Ensure labels are the model names (strings)
+    models = comparison_df.index.astype(str).tolist()
+    x = np.arange(len(models), dtype=float)
 
-    fig, ax = plt.subplots(figsize=figsize)
+    # Total number of bars per group = 1 (MAE) + len(rate_cols)
+    n_bars = 1 + len(rate_cols)
+    width = 0.8 / float(n_bars)
 
-    x = np.arange(len(data.index), dtype=float)  # models
-    n_metrics = len(metrics)
+    # --- aesthetic choices ---
+    mae_color = "#1f77b4"   # blue
+    far_color = "#ff7f0e"   # orange
+    mr_color = "#2ca02c"    # green
+    rate_colors = [far_color, mr_color][: len(rate_cols)]
 
-    if style == "grouped":
-        # Side-by-side bars per model
-        width = 0.8 / float(n_metrics)
-        for i, metric in enumerate(metrics):
-            offset = (i - (n_metrics - 1) / 2.0) * width
-            values = data[metric].to_numpy()
-            ax.bar(x + offset, values, width=width, label=metric)
-    elif style == "stacked":
-        # Stacked bars per model
-        bottom = np.zeros(len(data.index), dtype=float)
-        for metric in metrics:
-            values = data[metric].to_numpy()
-            ax.bar(x, values, bottom=bottom, label=metric)
-            bottom += values
+    # Primary axis (MAE)
+    ax_left.spines["left"].set_visible(True)
+    ax_left.spines["bottom"].set_visible(True)
+    ax_left.spines["top"].set_visible(True)
+    ax_left.spines["right"].set_visible(False)
+
+    # Secondary axis (Rates)
+    ax_right.spines["right"].set_visible(True)
+    ax_right.spines["top"].set_visible(True)
+    ax_right.spines["left"].set_visible(False)
+    ax_right.spines["bottom"].set_visible(False)
+
+    # ax_left.grid(axis="y", alpha=0.3, linestyle="--", linewidth=0.7)
+
+    # ---- MAE on left axis ----
+    mae_values = comparison_df[mae_col].to_numpy()
+    mae_offset = (0 - (n_bars - 1) / 2.0) * width
+
+    if mae_err_col in comparison_df.columns:
+        mae_err = comparison_df[mae_err_col].to_numpy()
     else:
-        raise ValueError("style must be 'grouped' or 'stacked'.")
+        mae_err = None
 
-    ax.set_xticks(x)
-    ax.set_xticklabels(data.index, rotation=rotation)
-    ax.legend(frameon=False)
+    mae_bars = ax_left.bar(
+        x + mae_offset,
+        mae_values,
+        width=width,
+        label="MAE (days)",
+        color=mae_color,
+        edgecolor="black",
+        linewidth=0.5,
+        yerr=mae_err,
+        capsize=3 if mae_err is not None else 0,
+    )
 
-    if ylabel:
-        ax.set_ylabel(ylabel)
-    if title:
-        ax.set_title(title)
+    # ---- FAR & MR on right axis ----
+    rate_bars = []
+    for i, (col, c) in enumerate(zip(rate_cols, rate_colors), start=1):
+        offset = (i - (n_bars - 1) / 2.0) * width
+        values = comparison_df[col].to_numpy()
+        label = (
+            "FAR (%)" if "far" in col.lower() else
+            "Miss Rate (%)" if "mr" in col.lower() or "miss" in col.lower()
+            else col.replace("_", " ").title()
+        )
 
-    ax.spines["right"].set_visible(False)
-    ax.spines["top"].set_visible(False)
+        bar = ax_right.bar(
+            x + offset,
+            values,
+            width=width,
+            label=label,
+            color=c,
+            edgecolor="black",
+            linewidth=0.5,
+            alpha=0.9,
+        )
+        rate_bars.append(bar)
 
+    # ---- Axes formatting ----
+    ax_left.set_xticks(x)
+    ax_left.set_xticklabels(models, rotation=rotation)
+
+    ax_left.set_ylabel("MAE (days)")
+    ax_right.set_ylabel("Rate (%)")
+
+    # keep FAR/MR comparable on [0, 100]
+    ax_right.set_ylim(0, 100)
+
+    # if title:
+    #     ax_left.set_title(title)
+
+    # ---- Legend in upper right ----
+    handles_left, labels_left = ax_left.get_legend_handles_labels()
+    handles_right, labels_right = ax_right.get_legend_handles_labels()
+    handles = handles_left + handles_right
+    labels = labels_left + labels_right
+
+    ax_right.legend(
+        handles,
+        labels,
+        frameon=False,
+        loc="upper right",
+    )
     fig.tight_layout()
-    return fig, ax
-
+    return fig, (ax_left, ax_right)
 
 def compare_models(
-    model_spatial_metrics: dict[str, dict[str, xr.DataArray]],
-    metrics: list[str],
-    style: str = "grouped",
-    figsize: tuple[float, float] = (10.0, 6.0),
+    model_spatial_metrics: Dict[str, Mapping[str, xr.DataArray]],
+    mae_col: str = "cmz_mae_mean_days",
+    rate_cols: Sequence[str] = ("cmz_far_pct", "cmz_mr_pct"),
+    figsize: Tuple[float, float] = (10.0, 6.0),
     title: str | None = None,
-    ylabel: str | None = None,
     rotation: int = 0,
-) -> tuple[pd.DataFrame, plt.Figure, plt.Axes]:
-    """Create a comparison table and plot for multiple models in one call.
-
-    Args:
-        model_spatial_metrics:
-            Mapping from model name to its spatial_metrics dictionary.
-        metrics:
-            List of metric column names (from the comparison table)
-            to visualize in the bar chart.
-        style:
-            Bar chart style: "grouped" for side-by-side bars per model,
-            or "stacked" for stacked bars per model.
-        figsize:
-            Size of the figure in inches (width, height).
-        title:
-            Optional title for the generated plot.
-        ylabel:
-            Optional y-axis label for the plot.
-        rotation:
-            Rotation (degrees) for x-axis tick labels.
-
-    Returns:
-        Tuple of:
-            - comparison_df: pandas DataFrame with summary metrics.
-            - fig: Matplotlib Figure object for the comparison plot.
-            - ax: Matplotlib Axes object for the comparison plot.
-    """
+) -> Tuple[pd.DataFrame, plt.Figure, Tuple[plt.Axes, plt.Axes]]:
     comparison_df = create_model_comparison_table(model_spatial_metrics)
-    fig, ax = plot_model_comparison(
+    fig, (ax_left, ax_right) = plot_model_comparison_dual_axis(
         comparison_df=comparison_df,
-        metrics=metrics,
-        style=style,
+        mae_col=mae_col,
+        rate_cols=rate_cols,
         figsize=figsize,
         title=title,
-        ylabel=ylabel,
         rotation=rotation,
     )
-    return comparison_df, fig, ax
+    return comparison_df, fig, (ax_left, ax_right)
