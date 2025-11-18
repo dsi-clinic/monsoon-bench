@@ -1,3 +1,6 @@
+# Centralize the file name string formatting logic
+# This is for future implementation of loading other types of datasets when the
+# file names vary
 from __future__ import annotations
 from typing import Iterable, Mapping
 from datetime import datetime

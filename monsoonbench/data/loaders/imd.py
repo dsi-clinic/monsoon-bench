@@ -50,5 +50,4 @@ class IMDRainLoader(BaseLoader):
                 if cand in ds.data_vars:
                     ds = ds.rename({cand: "tp"}); break
 
-        # returns DataArray('tp') since to_dataarray=True
         return self._postprocess(ds)
