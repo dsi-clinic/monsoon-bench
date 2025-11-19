@@ -1,19 +1,17 @@
-import stat
-from .base import OnsetMetricsBase
-import argparse
-import numpy as np
-import xarray as xr
-import pandas as pd
-import matplotlib.pyplot as plt
+"""Climatology onset metrics computation.
+
+This module provides the ClimatologyOnsetMetrics class for computing
+climatological baseline metrics for monsoon onset prediction.
+"""
+
 from datetime import datetime, timedelta
-import os
-import glob
 from pathlib import Path
-# import warnings
-from matplotlib.patches import Polygon
-from matplotlib.path import Path
-import matplotlib.patches as patches
-import geopandas as gpd
+
+import numpy as np
+import pandas as pd
+import xarray as xr
+
+from .base import OnsetMetricsBase
 
 
 class ClimatologyOnsetMetrics(OnsetMetricsBase):
@@ -21,8 +19,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
     
     @staticmethod
     def compute_climatological_onset(imd_folder, thres_file, mok=True):
-        """
-        Compute climatological onset dates from all available IMD files.
+        """Compute climatological onset dates from all available IMD files.
         
         Parameters:
         imd_folder: str, folder containing IMD NetCDF files
@@ -32,24 +29,24 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         Returns:
         climatological_onset_doy: xarray DataArray with climatological onset day of year
         """
-        
         # Load threshold data
         thresh_ds = xr.open_dataset(thres_file)
-        thres_da = thresh_ds['MWmean']
+        thres_da = thresh_ds["MWmean"]
         
         # Find all IMD files and extract years
-        imd_files = glob.glob(os.path.join(imd_folder, "*.nc"))
+        imd_folder_path = Path(imd_folder)
+        imd_files = list(imd_folder_path.glob("*.nc"))
         years = []
-        
+
         for file_path in imd_files:
-            filename = os.path.basename(file_path)
+            filename = file_path.name
             # Remove .nc extension
-            name_without_ext = filename.replace('.nc', '')
+            name_without_ext = filename.replace(".nc", "")
             
             # Try to extract year from different naming patterns
-            if name_without_ext.startswith('data_'):
+            if name_without_ext.startswith("data_"):
                 # Pattern: data_YYYY.nc
-                year_str = name_without_ext.replace('data_', '')
+                year_str = name_without_ext.replace("data_", "")
             else:
                 # Pattern: YYYY.nc
                 year_str = name_without_ext
@@ -83,7 +80,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
                 
                 # Convert onset dates to day of year
                 onset_doy = onset_da.dt.dayofyear.astype(float)
-                onset_doy = onset_doy.where(~onset_da.isnull())
+                onset_doy = onset_doy.where(~onset_da.isna())
                 
                 all_onset_days.append(onset_doy)
                 
@@ -95,8 +92,8 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
             raise ValueError("No valid years found for climatology computation")
         
         # Stack all years and compute mean day of year
-        onset_stack = xr.concat(all_onset_days, dim='year')
-        climatological_onset_doy = onset_stack.mean(dim='year')
+        onset_stack = xr.concat(all_onset_days, dim="year")
+        climatological_onset_doy = onset_stack.mean(dim="year")
         
         # Round to nearest integer day
         climatological_onset_doy = np.round(climatological_onset_doy)
@@ -107,14 +104,14 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
     
     @staticmethod
     def get_initialization_dates(year):
-        """
-        Get initialization dates (Mondays and Thursdays from May-July) for a given year.
+        """Get initialization dates (Mondays and Thursdays from May-July).
+
         Uses the same logic as get_s2s_deterministic_twice_weekly but only returns dates.
         """
         # Define date range from May 1 to July 31 of 2024 (template)
         start_date = datetime(2024, 5, 1)
         end_date = datetime(2024, 7, 31)
-        date_range = pd.date_range(start_date, end_date, freq='D')
+        date_range = pd.date_range(start_date, end_date, freq="D")
         
         # Find Mondays (weekday=0) and Thursdays (weekday=3)
         is_monday = date_range.weekday == 0
@@ -122,17 +119,17 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         filtered_dates = date_range[is_monday | is_thursday]
         
         # Convert to the requested year
-        filtered_dates_yr = pd.to_datetime(filtered_dates.strftime(f'{year}-%m-%d'))
+        filtered_dates_yr = pd.to_datetime(filtered_dates.strftime(f"{year}-%m-%d"))
         
         return filtered_dates_yr
 
     @staticmethod
     def compute_climatology_as_forecast(climatological_onset_doy, year, init_dates, observed_onset_da,
                                     max_forecast_day=30, mok=True, mok_month=6, mok_day=2):
-        """
-        Use climatology as a forecast model for the given initialization dates.
+        """Use climatology as a forecast model for the given initialization dates.
+
         Only processes forecasts initialized before the observed onset date.
-        
+
         Parameters:
         climatological_onset_doy: xarray DataArray with climatological onset day of year
         year: int, year to evaluate
@@ -144,7 +141,6 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         Returns:
         pandas DataFrame with climatology forecast results
         """
-        
         results_list = []
         
         # Get dimensions
@@ -153,7 +149,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         
         print(f"Processing climatology as forecast for {len(init_dates)} init times x {len(lats)} lats x {len(lons)} lons...")
         print(f"Year: {year}")
-        print(f"Only processing forecasts initialized before observed onset dates")
+        print("Only processing forecasts initialized before observed onset dates")
         
         # Track statistics
         total_potential_inits = 0
@@ -178,7 +174,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
                     # Get observed onset date for this grid point
                     try:
                         obs_onset = observed_onset_da.isel(lat=i, lon=j).values
-                    except:
+                    except (IndexError, KeyError):
                         skipped_no_obs += 1
                         continue
                     
@@ -208,7 +204,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
                     try:
                         clim_onset_date = datetime(year, 1, 1) + timedelta(days=int(clim_onset_doy) - 1)
                         clim_onset_date = pd.to_datetime(clim_onset_date)
-                    except:
+                    except (ValueError, OverflowError):
                         continue  # Skip if invalid day of year
                     
                     # Check if climatological onset is within forecast window
@@ -239,21 +235,21 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
                     
                     # Store result
                     result = {
-                        'init_time': init_time,
-                        'lat': lat,
-                        'lon': lon,
-                        'onset_day': onset_day,  # None if no onset forecasted
-                        'onset_date': onset_date.strftime('%Y-%m-%d') if onset_date is not None else None,
-                        'climatological_onset_doy': clim_onset_doy,
-                        'climatological_onset_date': clim_onset_date.strftime('%Y-%m-%d'),
-                        'obs_onset_date': obs_onset_dt.strftime('%Y-%m-%d')  # Store observed onset for reference
+                        "init_time": init_time,
+                        "lat": lat,
+                        "lon": lon,
+                        "onset_day": onset_day,  # None if no onset forecasted
+                        "onset_date": onset_date.strftime("%Y-%m-%d") if onset_date is not None else None,
+                        "climatological_onset_doy": clim_onset_doy,
+                        "climatological_onset_date": clim_onset_date.strftime("%Y-%m-%d"),
+                        "obs_onset_date": obs_onset_dt.strftime("%Y-%m-%d")  # Store observed onset for reference
                     }
                     results_list.append(result)
         
         # Convert to DataFrame
         climatology_forecast_df = pd.DataFrame(results_list)
         
-        print(f"\nClimatology Forecast Summary:")
+        print("\nClimatology Forecast Summary:")
         print(f"Total potential initializations: {total_potential_inits}")
         print(f"Skipped (no observed onset): {skipped_no_obs}")
         print(f"Skipped (initialized after observed onset): {skipped_late_init}")
@@ -269,8 +265,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
     @staticmethod
     def compute_climatology_metrics_with_windows(climatology_forecast_df, observed_onset_da, 
                                             tolerance_days=3, verification_window=1, forecast_days=15):
-        """
-        Compute contingency matrix metrics using climatology forecasts against observed onset.
+        """Compute contingency matrix metrics using climatology forecasts against observed onset.
         
         Parameters:
         climatology_forecast_df: pandas DataFrame from compute_climatology_as_forecast
@@ -283,7 +278,6 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         metrics_df: pandas DataFrame with metrics for each grid point
         summary_stats: dict with overall statistics
         """
-        
         print(f"Computing climatology forecast metrics with tolerance = {tolerance_days} days")
         print(f"Verification window starts {verification_window} days after initialization")
         print(f"Forecast window length: {forecast_days} days")
@@ -292,19 +286,19 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         results_list = []
         
         # Get unique grid points
-        unique_locations = climatology_forecast_df[['lat', 'lon']].drop_duplicates()
+        unique_locations = climatology_forecast_df[["lat", "lon"]].drop_duplicates()
         
         print(f"Processing {len(unique_locations)} unique grid points...")
         
         for idx, (_, row) in enumerate(unique_locations.iterrows()):
-            lat, lon = row['lat'], row['lon']
+            lat, lon = row["lat"], row["lon"]
             
             if idx % 10 == 0:  # Progress update
                 print(f"Processing grid point {idx+1}/{len(unique_locations)}: lat={lat:.2f}, lon={lon:.2f}")
             
             # Get all climatology forecasts for this grid point
-            grid_data = climatology_forecast_df[(climatology_forecast_df['lat'] == lat) & 
-                                            (climatology_forecast_df['lon'] == lon)].copy()
+            grid_data = climatology_forecast_df[(climatology_forecast_df["lat"] == lat) & 
+                                            (climatology_forecast_df["lon"] == lon)].copy()
             
             # Get observed onset date for this grid point
             lat_idx = np.argmin(np.abs(observed_onset_da.lat.values - lat))
@@ -318,8 +312,8 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
             obs_onset_dt = pd.to_datetime(obs_onset)
             
             # Convert date strings to datetime for calculation
-            grid_data['clim_forecast_dt'] = pd.to_datetime(grid_data['onset_date'])
-            grid_data['init_dt'] = pd.to_datetime(grid_data['init_time'])
+            grid_data["clim_forecast_dt"] = pd.to_datetime(grid_data["onset_date"])
+            grid_data["init_dt"] = pd.to_datetime(grid_data["init_time"])
             
             # Initialize counters
             TP = 0
@@ -333,8 +327,8 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
             
             # Process each initialization
             for _, init_row in grid_data.iterrows():
-                t_init = init_row['init_dt']
-                clim_forecast = init_row['clim_forecast_dt']
+                t_init = init_row["init_dt"]
+                clim_forecast = init_row["clim_forecast_dt"]
                 
                 # Define forecast windows
                 valid_window_start = t_init + pd.Timedelta(days=verification_window)
@@ -387,22 +381,22 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
             
             # Store results
             result = {
-                'lat': lat,
-                'lon': lon,
-                'total_forecasts': total_forecasts,
-                'true_positive': TP,
-                'true_negative': TN,
-                'false_positive': FP,
-                'false_negative': FN,
-                'num_onset': num_onset,
-                'num_no_onset': num_no_onset,
-                'mae_combined': mae,
-                'mae_tp_only': mae_tp_only,
-                'num_tp_errors': len(mae_tp),
-                'num_fp_errors': len(mae_fp),
-                'tolerance_days': tolerance_days,
-                'verification_window': verification_window,
-                'forecast_days': forecast_days
+                "lat": lat,
+                "lon": lon,
+                "total_forecasts": total_forecasts,
+                "true_positive": TP,
+                "true_negative": TN,
+                "false_positive": FP,
+                "false_negative": FN,
+                "num_onset": num_onset,
+                "num_no_onset": num_no_onset,
+                "mae_combined": mae,
+                "mae_tp_only": mae_tp_only,
+                "num_tp_errors": len(mae_tp),
+                "num_fp_errors": len(mae_fp),
+                "tolerance_days": tolerance_days,
+                "verification_window": verification_window,
+                "forecast_days": forecast_days
             }
             results_list.append(result)
         
@@ -411,19 +405,19 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         
         # Calculate summary statistics
         summary_stats = {
-            'total_grid_points': len(metrics_df),
-            'total_forecasts': metrics_df['total_forecasts'].sum(),
-            'overall_true_positive': metrics_df['true_positive'].sum(),
-            'overall_true_negative': metrics_df['true_negative'].sum(),
-            'overall_false_positive': metrics_df['false_positive'].sum(),
-            'overall_false_negative': metrics_df['false_negative'].sum(),
-            'overall_num_onset': metrics_df['num_onset'].sum(),
-            'overall_num_no_onset': metrics_df['num_no_onset'].sum(),
-            'overall_mae_combined': metrics_df['mae_combined'].mean(),
-            'overall_mae_tp_only': metrics_df['mae_tp_only'].mean(),
-            'tolerance_days': tolerance_days,
-            'verification_window': verification_window,
-            'forecast_days': forecast_days
+            "total_grid_points": len(metrics_df),
+            "total_forecasts": metrics_df["total_forecasts"].sum(),
+            "overall_true_positive": metrics_df["true_positive"].sum(),
+            "overall_true_negative": metrics_df["true_negative"].sum(),
+            "overall_false_positive": metrics_df["false_positive"].sum(),
+            "overall_false_negative": metrics_df["false_negative"].sum(),
+            "overall_num_onset": metrics_df["num_onset"].sum(),
+            "overall_num_no_onset": metrics_df["num_no_onset"].sum(),
+            "overall_mae_combined": metrics_df["mae_combined"].mean(),
+            "overall_mae_tp_only": metrics_df["mae_tp_only"].mean(),
+            "tolerance_days": tolerance_days,
+            "verification_window": verification_window,
+            "forecast_days": forecast_days
         }
         
         return metrics_df, summary_stats  
@@ -432,22 +426,20 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
     def compute_climatology_baseline_multiple_years(years, imd_folder, thres_file,
                                                 tolerance_days=3, verification_window=1, forecast_days=15,
                                                 max_forecast_day=15, mok=True, onset_window=5, mok_month=6, mok_day=2):
-        """
-        Compute climatology baseline metrics for multiple years.
+        """Compute climatology baseline metrics for multiple years.
         
         Returns:
         metrics_df_dict: dict, {year: metrics_df}
         climatological_onset_doy: xarray DataArray with climatological onset day of year
         """
-        
-        print(f"Computing climatological onset reference...")
+        print("Computing climatological onset reference...")
         
         # Compute climatological onset once (using all available years)
         climatological_onset_doy = ClimatologyOnsetMetrics.compute_climatological_onset(imd_folder, thres_file, mok=mok)
 
         # Load threshold data
         thresh_ds = xr.open_dataset(thres_file)
-        thres_da = thresh_ds['MWmean']
+        thres_da = thresh_ds["MWmean"]
         
         metrics_df_dict = {}
         

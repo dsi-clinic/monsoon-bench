@@ -1,9 +1,10 @@
 """Common utilities for monsoon onset metrics calculations.
+
 Contains shared functionality between deterministic and probabilistic models.
 """
 
-import os
 from datetime import datetime
+from pathlib import Path as FilePath
 
 import geopandas as gpd
 import matplotlib.pyplot as plt
@@ -18,19 +19,20 @@ class OnsetMetricsBase:
     """Base class containing common functionality for onset metrics"""
 
     @staticmethod
-    def load_imd_rainfall(year, imd_folder):
+    def load_imd_rainfall(year: int, imd_folder: str) -> xr.DataArray:
         """Load IMD daily rainfall NetCDF for a given year."""
         file_patterns = [f"data_{year}.nc", f"{year}.nc"]
+        folder_path = FilePath(imd_folder)
 
         imd_file = None
         for pattern in file_patterns:
-            test_path = f"{imd_folder}/{pattern}"
-            if os.path.exists(test_path):
-                imd_file = test_path
+            test_path = folder_path / pattern
+            if test_path.exists():
+                imd_file = str(test_path)
                 break
 
         if imd_file is None:
-            available_files = [f for f in os.listdir(imd_folder) if f.endswith(".nc")]
+            available_files = [f.name for f in folder_path.iterdir() if f.suffix == ".nc"]
             raise FileNotFoundError(
                 f"No IMD file found for year {year} in {imd_folder}. "
                 f"Tried patterns: {file_patterns}. "
@@ -63,7 +65,12 @@ class OnsetMetricsBase:
         return rainfall
 
     @staticmethod
-    def detect_observed_onset(rainfall_ds, thresh_slice, year, mok=True):
+    def detect_observed_onset(
+        rainfall_ds: xr.DataArray,
+        thresh_slice: xr.DataArray,
+        year: int,
+        mok: bool = True,
+    ) -> xr.DataArray:
         """Detect observed onset dates for a given year."""
         rain_slice = rainfall_ds
         window = 5
@@ -101,11 +108,10 @@ class OnsetMetricsBase:
         sum_condition = rolling_sum_aligned > thresh_slice
         onset_condition = first_day_condition & sum_condition
 
-        def find_first_true(arr):
+        def find_first_true(arr: np.ndarray) -> int:
             if arr.any():
                 return int(np.argmax(arr))
-            else:
-                return -1
+            return -1
 
         onset_indices = xr.apply_ufunc(
             find_first_true,
@@ -199,9 +205,6 @@ class OnsetMetricsBase:
             mae_fp = []
 
             gt_grd = grid_data["obs_onset_dt"].iloc[0]
-
-            true_onset_window_start = gt_grd - pd.Timedelta(days=tolerance_days)
-            true_onset_window_end = gt_grd + pd.Timedelta(days=tolerance_days)
 
             for _, init_row in grid_data.iterrows():
                 t_init = init_row["init_dt"]
@@ -400,8 +403,9 @@ class OnsetMetricsBase:
     def plot_spatial_metrics(
         spatial_metrics, shpfile_path, figsize=(18, 6), save_path=None
     ):
-        """Plot spatial maps of Mean MAE, False Alarm Rate, and Miss Rate in a 1x3 subplot
-        with India outline, CMZ polygon, grid values displayed, and CMZ averages.
+        """Plot spatial maps of Mean MAE, False Alarm Rate, and Miss Rate.
+
+        Creates a 1x3 subplot with India outline, CMZ polygon, grid values displayed, and CMZ averages.
         """
         # Extract data
         mean_mae = spatial_metrics["mean_mae"]
@@ -625,7 +629,7 @@ class OnsetMetricsBase:
 
         # Panel 1: Mean MAE
         masked_mae = np.ma.masked_invalid(mean_mae.values)
-        im1 = axes[0].pcolormesh(
+        axes[0].pcolormesh(
             LON_edges,
             LAT_edges,
             masked_mae,
@@ -702,7 +706,7 @@ class OnsetMetricsBase:
 
         # Panel 2: False Alarm Rate
         masked_far = np.ma.masked_invalid(far.values)
-        im2 = axes[1].pcolormesh(
+        axes[1].pcolormesh(
             LON_edges,
             LAT_edges,
             masked_far,
@@ -773,7 +777,7 @@ class OnsetMetricsBase:
 
         # Panel 3: Miss Rate
         masked_mr = np.ma.masked_invalid(miss_rate.values)
-        im3 = axes[2].pcolormesh(
+        axes[2].pcolormesh(
             LON_edges,
             LAT_edges,
             masked_mr,

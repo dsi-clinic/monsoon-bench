@@ -1,10 +1,9 @@
 """Data loading and validation module."""
 # ruff: noqa: F401
 
-from .registry import load, get_registered, register_loader
-
 # Import concrete loaders so their decorators execute at import time:
-from .loaders import imd as _imd          
+from .loaders import imd as _imd
+from .registry import get_registered, load, register_loader
 
 # ------The following is going to be implemented in the next step
 # from .loaders import deterministic as _det  

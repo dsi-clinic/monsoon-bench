@@ -1,6 +1,13 @@
+"""Base loader class for dataset loading.
+
+This module provides the BaseLoader class that all dataset loaders inherit from.
+"""
+
 from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
+
 import xarray as xr
 
 DEFAULT_VAR_ALIASES = {
@@ -43,8 +50,7 @@ REQUIRED_COORDS_COMMON = ["lat", "lon"]
 
 @dataclass
 class BaseLoader:
-    """
-    Base class for all dataset loaders.
+    """Base class for all dataset loaders.
 
     Subclasses should implement .load() to return an xr.Dataset or xr.DataArray,
     then call self._postprocess(...) before returning.
@@ -62,21 +68,22 @@ class BaseLoader:
       - to_dataarray: if True and Dataset has a single var, return DataArray
     """
     # Options:
-    root: Optional[str] = None
-    chunks: Optional[Dict[str, int]] = None
-    engine: Optional[str] = None
+    root: str | None = None
+    chunks: dict[str, int] | None = None
+    engine: str | None = None
     decode_times: bool = True
 
-    rename: Dict[str, str] = field(default_factory=dict)
-    drop_variables: Optional[list[str]] = None
-    subset: Dict[str, Any] = field(default_factory=dict)
+    rename: dict[str, str] = field(default_factory=dict)
+    drop_variables: list[str] | None = None
+    subset: dict[str, Any] = field(default_factory=dict)
 
-    ensure_vars: Optional[list[str]] = None
-    ensure_coords: Optional[list[str]] = None
+    ensure_vars: list[str] | None = None
+    ensure_coords: list[str] | None = None
     to_dataarray: bool = False
 
     @classmethod
-    def from_kwargs(cls, **kwargs) -> "BaseLoader":
+    def from_kwargs(cls, **kwargs) -> BaseLoader:
+        """Create a loader instance from keyword arguments."""
         return cls(**kwargs)
 
 
@@ -87,9 +94,9 @@ class BaseLoader:
             if src in ds.dims or src in ds.coords or (hasattr(ds, "data_vars") and src in ds.data_vars):
                 try:
                     ds = ds.rename({src: tgt})
-                except Exception:
+                except (ValueError, KeyError):
                     # If rename fails, ignore and let explicit map handle it
-                    pass
+                    continue
         # Apply explicit user-provided rename (takes precedence)
         if self.rename:
             ds = ds.rename(self.rename)
@@ -133,8 +140,8 @@ class BaseLoader:
         return ds
 
     def _postprocess(self, ds: xr.Dataset | xr.DataArray) -> xr.Dataset | xr.DataArray:
-        """
-        Run after the subclass has opened/assembled the dataset.
+        """Run after the subclass has opened/assembled the dataset.
+
         Order matters: rename -> subset -> drop -> ensure -> finalize
         """
         ds = self._apply_alias_renames(ds)

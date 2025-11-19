@@ -22,7 +22,7 @@ Expected spatial_metrics format (same as CLI/plot_spatial_metrics):
 
 from __future__ import annotations
 
-from typing import Dict, Mapping, Sequence, Tuple
+from collections.abc import Mapping, Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -70,7 +70,7 @@ def _global_nanmean(arr: np.ndarray) -> float:
 
 def _summarize_single_model(
     spatial_metrics: Mapping[str, xr.DataArray],
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Create CMZ summary stats for a single model.
 
     Returns:
@@ -151,7 +151,7 @@ def _summarize_single_model(
 
 
 def create_model_comparison_table(
-    model_spatial_metrics: Dict[str, Mapping[str, xr.DataArray]],
+    model_spatial_metrics: dict[str, Mapping[str, xr.DataArray]],
 ) -> pd.DataFrame:
     """Build tidy comparison table for multiple models (CMZ + overall)."""
     rows: list[dict[str, float | str]] = []
@@ -181,12 +181,11 @@ def plot_model_comparison_dual_axis(
     mae_col: str = "cmz_mae_mean_days",      # CMZ MAE
     mae_err_col: str = "cmz_mae_se_days",    # CMZ SE
     rate_cols: Sequence[str] = ("cmz_far_pct", "cmz_mr_pct"),
-    figsize: Tuple[float, float] = (10.0, 6.0),
+    figsize: tuple[float, float] = (10.0, 6.0),
     title: str | None = None,
     rotation: int = 0,
-) -> Tuple[plt.Figure, Tuple[plt.Axes, plt.Axes]]:
+) -> tuple[plt.Figure, tuple[plt.Axes, plt.Axes]]:
     """Plot grouped bar chart with dual y-axis (MAE vs FAR/MR)."""
-
     # ---- basic checks ----
     if mae_col not in comparison_df.columns:
         raise ValueError(f"{mae_col!r} not found in comparison_df columns.")
@@ -235,7 +234,7 @@ def plot_model_comparison_dual_axis(
     else:
         mae_err = None
 
-    mae_bars = ax_left.bar(
+    ax_left.bar(
         x + mae_offset,
         mae_values,
         width=width,
@@ -299,13 +298,14 @@ def plot_model_comparison_dual_axis(
     return fig, (ax_left, ax_right)
 
 def compare_models(
-    model_spatial_metrics: Dict[str, Mapping[str, xr.DataArray]],
+    model_spatial_metrics: dict[str, Mapping[str, xr.DataArray]],
     mae_col: str = "cmz_mae_mean_days",
     rate_cols: Sequence[str] = ("cmz_far_pct", "cmz_mr_pct"),
-    figsize: Tuple[float, float] = (10.0, 6.0),
+    figsize: tuple[float, float] = (10.0, 6.0),
     title: str | None = None,
     rotation: int = 0,
-) -> Tuple[pd.DataFrame, plt.Figure, Tuple[plt.Axes, plt.Axes]]:
+) -> tuple[pd.DataFrame, plt.Figure, tuple[plt.Axes, plt.Axes]]:
+    """Compare multiple models by creating a table and dual-axis plot."""
     comparison_df = create_model_comparison_table(model_spatial_metrics)
     fig, (ax_left, ax_right) = plot_model_comparison_dual_axis(
         comparison_df=comparison_df,

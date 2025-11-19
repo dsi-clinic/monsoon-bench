@@ -1,5 +1,11 @@
-import os
+"""Deterministic model onset metrics computation.
+
+This module provides the DeterministicOnsetMetrics class for computing
+onset metrics from deterministic model forecasts.
+"""
+
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -13,7 +19,8 @@ class DeterministicOnsetMetrics(OnsetMetricsBase):
 
     @staticmethod
     def get_forecast_deterministic_twice_weekly(yr, model_forecast_dir):
-        """Loads model precip data for twice-weekly initializations from May to July.
+        """Load model precip data for twice-weekly initializations from May to July.
+
         Filters for Mondays and Thursdays in the specified year.
         The forecast file is expected to be named as '{year}.nc' in the model_forecast_dir with
         variable "tp" being daily accumulated rainfall with dimensions (init_time, lat, lon, step).
@@ -25,9 +32,9 @@ class DeterministicOnsetMetrics(OnsetMetricsBase):
         p_model: ndarray, precipitation data
         """
         fname = f"{yr}.nc"
-        file_path = os.path.join(model_forecast_dir, fname)
+        file_path = Path(model_forecast_dir) / fname
 
-        if not os.path.exists(file_path):
+        if not file_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
 
         # Filter for twice weekly data from daily for the specified year based on 2024 Monday and Thursday dates (to match with IFS CY48R1 reforecasts)
@@ -124,7 +131,7 @@ class DeterministicOnsetMetrics(OnsetMetricsBase):
 
                     try:
                         obs_onset = onset_da.isel(lat=i, lon=j).values
-                    except:
+                    except (IndexError, KeyError):
                         skipped_no_obs += 1
                         continue
 

@@ -1,10 +1,13 @@
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+
 import numpy as np
+import pandas as pd
+import pytest
 import xarray as xr
+
 from monsoonbench.metrics.climatology import ClimatologyOnsetMetrics
 from monsoonbench.metrics.probabilistic import ProbabilisticOnsetMetrics
-import pandas as pd
+
 
 @pytest.fixture
 def mock_climatology_data():
