@@ -1,44 +1,30 @@
-
-# general
+# --- Basic paths ---
 mkfile_path := $(abspath $(firstword $(MAKEFILE_LIST)))
 current_dir := $(notdir $(patsubst %/,%,$(dir $(mkfile_path))))
-current_abs_path := $(subst Makefile,,$(mkfile_path))
+project_dir := $(subst Makefile,, $(mkfile_path))
 
-# pipeline constants
-# PROJECT_NAME
-project_name := "2025-autumn-aice"
-project_dir := "$(current_abs_path)"
+# --- Docker config ---
+service := monsoonbench    # name of service from docker-compose.yaml
+mount_data := -v $(project_dir)/monsoonbench/data:/project/monsoonbench/data
 
-# environment variables
-include .env
+.PHONY: build shell test run-notebooks clean
 
-# Check required environment variables
-ifeq ($(DATA_DIR),)
-    $(error DATA_DIR must be set in .env file)
-endif
-
-
-# Build Docker image 
-# Global mount for data directory
-mount_data := -v $(DATA_DIR):/project/data
-
-.PHONY: build-only run-interactive run-notebooks test-pipeline clean
-
-# Build Docker image 
-build-only: 
+# Build the MonsoonBench Docker image
+build:
 	docker compose build
 
-run-interactive: build-only	
-	docker compose run -it --rm $(mount_data) $(project_name) /bin/bash
+# Open an interactive shell inside the container
+shell: build
+	docker compose run --rm $(mount_data) $(service) bash
 
-run-notebooks: build-only	
-	docker compose run --rm -p 8888:8888 -t $(mount_data) $(project_name) uv run jupyter lab --port=8888 --ip='*' --NotebookApp.token='' --NotebookApp.password='' --no-browser --allow-root
+# Run tests (pytest is inside the repo)
+test: build
+	docker compose run --rm $(mount_data) $(service) pytest -q
 
-test-pipeline: build-only
-	docker compose run --rm $(mount_data) $(project_name) uv run python src/utils/pipeline_example.py
+# Run demo notebooks
+run-notebooks: build
+	docker compose run --rm -p 8888:8888 $(mount_data) $(service) \
+		uv run jupyter lab --port=8888 --ip='*' --NotebookApp.token='' --no-browser
 
 clean:
 	docker compose down --rmi all --volumes --remove-orphans
-	docker image prune -f
-
-
