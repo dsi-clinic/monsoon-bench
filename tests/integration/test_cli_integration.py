@@ -61,7 +61,20 @@ def mock_config(mock_file_system):
     config.mok_month = 6
     config.mok_day = 2
     config.figsize = [18, 6]
+    config.download_dir = None
+    config.download_formats = None
+    config.download_metrics = None
+    config.download_keep_nans = False
     return config
+
+
+@pytest.fixture(autouse=True)
+def patched_load():
+    """Avoid touching the real filesystem when creating DataLoader."""
+    with patch("monsoonbench.cli.main.load") as mock_load:
+        loader = MagicMock(name="DataLoader")
+        mock_load.return_value = loader
+        yield loader
 
 
 @pytest.fixture
@@ -420,7 +433,120 @@ class TestOutputGeneration:
                 main()
 
                 # Verify plot was NOT called
-                mock_plot.assert_not_called()
+            mock_plot.assert_not_called()
+
+    @patch("monsoonbench.cli.main.get_config")
+    @patch("monsoonbench.cli.main.download_spatial_metrics_data")
+    @patch("monsoonbench.cli.main.DeterministicOnsetMetrics")
+    def test_visualization_download_requested(
+        self,
+        mock_metrics_class,
+        mock_download,
+        mock_get_config,
+        mock_config,
+        mock_metrics_df,
+        mock_onset_da,
+        mock_spatial_metrics,
+    ):
+        """Ensure downloader is invoked with user-provided formats/metrics."""
+        mock_config.download_dir = "artifacts"
+        mock_config.download_formats = ["csv", "json"]
+        mock_config.download_metrics = ["mean_mae"]
+        mock_config.download_keep_nans = True
+        mock_get_config.return_value = mock_config
+        mock_metrics_instance = MagicMock()
+        mock_metrics_class.return_value = mock_metrics_instance
+
+        mock_metrics_instance.compute_metrics_multiple_years.return_value = (
+            {2020: mock_metrics_df},
+            {2020: mock_onset_da},
+        )
+        mock_metrics_instance.create_spatial_far_mr_mae.return_value = (
+            mock_spatial_metrics
+        )
+
+        with patch("xarray.Dataset.to_netcdf"):
+            from monsoonbench.cli.main import main
+
+            main()
+
+        mock_download.assert_called_once()
+        call_kwargs = mock_download.call_args.kwargs
+        assert call_kwargs["output_dir"] == "artifacts"
+        assert call_kwargs["formats"] == ["csv", "json"]
+        assert call_kwargs["metrics"] == ["mean_mae"]
+        assert call_kwargs["dropna"] is False  # download_keep_nans=True -> dropna False
+
+    @patch("monsoonbench.cli.main.get_config")
+    @patch("monsoonbench.cli.main.download_spatial_metrics_data")
+    @patch("monsoonbench.cli.main.DeterministicOnsetMetrics")
+    def test_visualization_download_defaults(
+        self,
+        mock_metrics_class,
+        mock_download,
+        mock_get_config,
+        mock_config,
+        mock_metrics_df,
+        mock_onset_da,
+        mock_spatial_metrics,
+    ):
+        """Downloader should default to NetCDF when no formats specified."""
+        mock_config.download_dir = "artifacts"
+        mock_config.download_formats = None
+        mock_get_config.return_value = mock_config
+        mock_metrics_instance = MagicMock()
+        mock_metrics_class.return_value = mock_metrics_instance
+
+        mock_metrics_instance.compute_metrics_multiple_years.return_value = (
+            {2020: mock_metrics_df},
+            {2020: mock_onset_da},
+        )
+        mock_metrics_instance.create_spatial_far_mr_mae.return_value = (
+            mock_spatial_metrics
+        )
+
+        with patch("xarray.Dataset.to_netcdf"):
+            from monsoonbench.cli.main import main
+
+            main()
+
+        mock_download.assert_called_once()
+        call_kwargs = mock_download.call_args.kwargs
+        assert call_kwargs["formats"] == ["netcdf"]
+
+    @patch("monsoonbench.cli.main.get_config")
+    @patch("monsoonbench.cli.main.download_spatial_metrics_data")
+    @patch("monsoonbench.cli.main.DeterministicOnsetMetrics")
+    def test_visualization_download_not_called_without_dir(
+        self,
+        mock_metrics_class,
+        mock_download,
+        mock_get_config,
+        mock_config,
+        mock_metrics_df,
+        mock_onset_da,
+        mock_spatial_metrics,
+    ):
+        """Downloader should not run when download_dir is None."""
+        mock_config.download_dir = None
+        mock_get_config.return_value = mock_config
+        mock_metrics_instance = MagicMock()
+        mock_metrics_class.return_value = mock_metrics_instance
+
+        mock_metrics_instance.compute_metrics_multiple_years.return_value = (
+            {2020: mock_metrics_df},
+            {2020: mock_onset_da},
+        )
+        mock_metrics_instance.create_spatial_far_mr_mae.return_value = (
+            mock_spatial_metrics
+        )
+
+        with patch("xarray.Dataset.to_netcdf"):
+            from monsoonbench.cli.main import main
+
+            main()
+
+        mock_download.assert_not_called()
 
 
 class TestDatasetAttributes:
