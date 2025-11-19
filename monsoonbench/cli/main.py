@@ -14,10 +14,7 @@ from monsoonbench.metrics import (
     DeterministicOnsetMetrics,
     ProbabilisticOnsetMetrics,
 )
-from monsoonbench.visualization import (
-    download_spatial_metrics_data,
-    plot_spatial_metrics,
-)
+from monsoonbench.visualization.spatial import plot_spatial_metrics
 
 
 def main() -> None:
@@ -88,13 +85,6 @@ def main() -> None:
     # Create spatial metrics
     spatial_metrics = metrics.create_spatial_far_mr_mae(metrics_df_dict, onset_da_dict)
 
-    years_str = f"{min(args.years)}-{max(args.years)}"
-    window_str = f"{args.verification_window}-{args.forecast_days}day"
-    mok_str = "MOK" if args.mok else "noMOK"
-    artifact_basename = (
-        f"spatial_metrics_{args.model_type}_{years_str}_{window_str}_{mok_str}"
-    )
-
     # Save to NetCDF
     ds = xr.Dataset(spatial_metrics)
     ds.attrs["title"] = "Monsoon Onset MAE, FAR, MR Analysis"
@@ -109,30 +99,17 @@ def main() -> None:
     ds.to_netcdf(args.output_file)
     print(f"\nSpatial metrics saved to: {args.output_file}")
 
-    if args.download_dir:
-        download_formats = args.download_formats or ["netcdf"]
-        print(
-            "\nExporting visualization data to "
-            f"{args.download_dir} in formats {download_formats}..."
-        )
-        download_paths = download_spatial_metrics_data(
-            spatial_metrics=ds,
-            output_dir=args.download_dir,
-            filename=artifact_basename,
-            formats=download_formats,
-            metadata=dict(ds.attrs),
-            metrics=args.download_metrics,
-            dropna=not args.download_keep_nans,
-        )
-        for path in download_paths:
-            print(f" - {path}")
-
     # Generate and save plot if plot_dir is specified
     if args.plot_dir:
         os.makedirs(args.plot_dir, exist_ok=True)
 
         # Generate plot filename
-        plot_filename = f"{artifact_basename}.png"
+        years_str = f"{min(args.years)}-{max(args.years)}"
+        window_str = f"{args.verification_window}-{args.forecast_days}day"
+        mok_str = "MOK" if args.mok else "noMOK"
+        plot_filename = (
+            f"spatial_metrics_{args.model_type}_{years_str}_{window_str}_{mok_str}.png"
+        )
         plot_path = os.path.join(args.plot_dir, plot_filename)
 
         print("\nGenerating spatial plot...")

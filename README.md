@@ -198,36 +198,3 @@ You can also run `ruff` directly:
 ruff check
 ruff format
 ```
-
-### Visualization Data Downloads
-
-Visualization utilities now expose a standardized way to export the gridded
-metrics used for scorecards and onset maps. After generating a
-``spatial_metrics`` dictionary, call:
-
-```python
-from monsoonbench.visualization import download_spatial_metrics_data
-
-download_spatial_metrics_data(
-    spatial_metrics,
-    output_dir="artifacts",
-    formats=("netcdf", "csv"),
-    metadata={"model": "GraphCast"},
-)
-```
-
-This writes well-documented files that can be fed into downstream plotting
-experiments or shared with collaborators.
-
-From the CLI you can emit the exact same bundle while generating plots/NetCDF
-results:
-
-```bash
-monsoonbench \
-  --config configs/deterministic.yaml \
-  --download_dir artifacts \
-  --download_formats netcdf csv parquet
-```
-
-Optional flags such as `--download_metrics mean_mae miss_rate` and
-`--download_keep_nans` let you tailor the export for downstream consumers.

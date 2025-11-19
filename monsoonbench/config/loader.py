@@ -126,26 +126,6 @@ Examples:
         type=float,
         help="Figure size in inches [width height] (default: 18 6)",
     )
-    parser.add_argument(
-        "--download_dir",
-        type=str,
-        help="Directory to export visualization-ready data (optional)",
-    )
-    parser.add_argument(
-        "--download_formats",
-        nargs="+",
-        help="Formats for exported data (any of: netcdf, csv, parquet, json)",
-    )
-    parser.add_argument(
-        "--download_metrics",
-        nargs="+",
-        help="Subset of spatial metrics to export (default: all)",
-    )
-    parser.add_argument(
-        "--download_keep_nans",
-        action="store_true",
-        help="Keep rows with all-NaN metric values when exporting tabular data",
-    )
 
     return parser
 
@@ -175,10 +155,6 @@ def get_config() -> argparse.Namespace:
         "mok": False,
         "mok_month": 6,
         "mok_day": 2,
-        "download_dir": None,
-        "download_formats": None,
-        "download_metrics": None,
-        "download_keep_nans": False,
     }
 
     # Load from YAML if provided
