@@ -6,9 +6,12 @@ This module provides the BaseLoader class that all dataset loaders inherit from.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import xarray as xr
+
+if TYPE_CHECKING:
+    from typing import Self
 
 DEFAULT_VAR_ALIASES = {
 
@@ -82,13 +85,13 @@ class BaseLoader:
     to_dataarray: bool = False
 
     @classmethod
-    def from_kwargs(cls, **kwargs) -> BaseLoader:
+    def from_kwargs(cls: type[Self], **kwargs) -> Self:  # type: ignore[no-untyped-def]
         """Create a loader instance from keyword arguments."""
         return cls(**kwargs)
 
 
 # ------ Helpers ------
-    def _apply_alias_renames(self, ds: xr.Dataset | xr.DataArray) -> xr.Dataset | xr.DataArray:
+    def _apply_alias_renames(self: Self, ds: xr.Dataset | xr.DataArray) -> xr.Dataset | xr.DataArray:
         # Apply default aliases if present
         for src, tgt in DEFAULT_VAR_ALIASES.items():
             if src in ds.dims or src in ds.coords or (hasattr(ds, "data_vars") and src in ds.data_vars):
@@ -102,20 +105,20 @@ class BaseLoader:
             ds = ds.rename(self.rename)
         return ds
 
-    def _subset(self, ds: xr.Dataset | xr.DataArray) -> xr.Dataset | xr.DataArray:
+    def _subset(self: Self, ds: xr.Dataset | xr.DataArray) -> xr.Dataset | xr.DataArray:
         if not self.subset:
             return ds
         # Only select coords that exist
         sel_kwargs = {k: v for k, v in self.subset.items() if k in ds.coords}
         return ds.sel(**sel_kwargs) if sel_kwargs else ds
 
-    def _drop_vars(self, ds: xr.Dataset | xr.DataArray) -> xr.Dataset | xr.DataArray:
+    def _drop_vars(self: Self, ds: xr.Dataset | xr.DataArray) -> xr.Dataset | xr.DataArray:
         if not self.drop_variables or not isinstance(ds, xr.Dataset):
             return ds
         keep = [v for v in ds.data_vars if v not in self.drop_variables]
         return ds[keep]
 
-    def _ensure(self, ds: xr.Dataset | xr.DataArray) -> None:
+    def _ensure(self: Self, ds: xr.Dataset | xr.DataArray) -> None:
         # coords
         coords_req = set(REQUIRED_COORDS_COMMON)
         if self.ensure_coords:
@@ -130,7 +133,7 @@ class BaseLoader:
             if missing_vars:
                 raise ValueError(f"Missing required variables: {missing_vars}")
 
-    def _finalize(self, ds: xr.Dataset | xr.DataArray) -> xr.Dataset | xr.DataArray:
+    def _finalize(self: Self, ds: xr.Dataset | xr.DataArray) -> xr.Dataset | xr.DataArray:
         # Optionally coerce Dataset to DataArray if there is a single variable
         if self.to_dataarray and isinstance(ds, xr.Dataset):
             if len(ds.data_vars) == 1:
@@ -139,7 +142,7 @@ class BaseLoader:
                 raise ValueError("to_dataarray=True but dataset has multiple variables.")
         return ds
 
-    def _postprocess(self, ds: xr.Dataset | xr.DataArray) -> xr.Dataset | xr.DataArray:
+    def _postprocess(self: Self, ds: xr.Dataset | xr.DataArray) -> xr.Dataset | xr.DataArray:
         """Run after the subclass has opened/assembled the dataset.
 
         Order matters: rename -> subset -> drop -> ensure -> finalize
@@ -152,6 +155,6 @@ class BaseLoader:
         return ds
 
     # ------ What subclasses must implement ------
-    def load(self) -> xr.Dataset | xr.DataArray:
+    def load(self: Self) -> xr.Dataset | xr.DataArray:
         """Return xr.Dataset or xr.DataArray. Must call self._postprocess(...) before returning."""
         raise NotImplementedError("Implement in subclasses")

@@ -60,12 +60,12 @@ def test_to_dataframe_filters_metrics():
     downloader = VisualizationDataDownloader.from_spatial_metrics(
         _sample_spatial_metrics(),
     )
-    df = downloader.to_dataframe(metrics=["mean_mae"])
+    result_df = downloader.to_dataframe(metrics=["mean_mae"])
 
-    assert "mean_mae" in df.columns
-    assert "false_alarm_rate" not in df.columns
+    assert "mean_mae" in result_df.columns
+    assert "false_alarm_rate" not in result_df.columns
     # Two lat-lon cells contain non-null MAE values
-    assert len(df) == 3
+    assert len(result_df) == 3
 
 
 def test_save_creates_files(tmp_path):

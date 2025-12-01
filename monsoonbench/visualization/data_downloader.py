@@ -15,11 +15,14 @@ import json
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
 import xarray as xr
+
+if TYPE_CHECKING:
+    from typing import Self
 
 __all__ = [
     "VisualizationDataDownloader",
@@ -88,7 +91,7 @@ class VisualizationDataDownloader:
     """Helper for exporting plotting data in common, downstream-friendly formats."""
 
     def __init__(
-        self,
+        self: Self,
         dataset: xr.Dataset,
         metadata: Mapping[str, Any] | None = None,
     ) -> None:
@@ -100,10 +103,10 @@ class VisualizationDataDownloader:
 
     @classmethod
     def from_spatial_metrics(
-        cls,
+        cls: type[Self],
         spatial_metrics: Mapping[str, xr.DataArray] | xr.Dataset,
         metadata: Mapping[str, Any] | None = None,
-    ) -> VisualizationDataDownloader:
+    ) -> Self:
         """Construct a downloader from the outputs of ``create_spatial_far_mr_mae``."""
         if isinstance(spatial_metrics, xr.Dataset):
             dataset = spatial_metrics
@@ -112,16 +115,16 @@ class VisualizationDataDownloader:
         return cls(dataset=dataset, metadata=metadata)
 
     @property
-    def available_metrics(self) -> list[str]:
+    def available_metrics(self: Self) -> list[str]:
         """Return the names of the metrics contained in the dataset."""
         return list(self._dataset.data_vars)
 
     @property
-    def metadata(self) -> dict[str, Any]:
+    def metadata(self: Self) -> dict[str, Any]:
         """Metadata describing the visualization dataset."""
         return dict(self._metadata)
 
-    def _select_metrics(self, metrics: Sequence[str] | None) -> xr.Dataset:
+    def _select_metrics(self: Self, metrics: Sequence[str] | None) -> xr.Dataset:
         """Return a dataset with the requested metric subset."""
         if metrics is None:
             return self._dataset
@@ -130,7 +133,7 @@ class VisualizationDataDownloader:
             raise KeyError(f"Metrics not found in dataset: {missing}")
         return self._dataset[list(metrics)]
 
-    def to_dataset(self, metrics: Sequence[str] | None = None) -> xr.Dataset:
+    def to_dataset(self: Self, metrics: Sequence[str] | None = None) -> xr.Dataset:
         """Return the dataset, annotated with metadata."""
         dataset = self._select_metrics(metrics)
         ds_copy = dataset.copy()
@@ -138,20 +141,20 @@ class VisualizationDataDownloader:
         return ds_copy
 
     def to_dataframe(
-        self,
+        self: Self,
         metrics: Sequence[str] | None = None,
         dropna: bool = True,
     ) -> pd.DataFrame:
         """Return a tidy ``pandas.DataFrame`` representation of the dataset."""
         ds = self._select_metrics(metrics)
-        df = ds.to_dataframe().reset_index()
+        dataframe = ds.to_dataframe().reset_index()
         metric_columns = list(ds.data_vars)
         if dropna and metric_columns:
-            df = df.dropna(subset=metric_columns, how="all")
-        return df
+            dataframe = dataframe.dropna(subset=metric_columns, how="all")
+        return dataframe
 
     def save(
-        self,
+        self: Self,
         path: str | Path,
         *,
         format: str | Path | None = None,
@@ -172,15 +175,15 @@ class VisualizationDataDownloader:
             ds = self.to_dataset(metrics=metrics)
             ds.to_netcdf(output_path)
         elif fmt in {"csv", "parquet", "json"}:
-            df = self.to_dataframe(metrics=metrics, dropna=dropna)
+            dataframe = self.to_dataframe(metrics=metrics, dropna=dropna)
             if fmt == "csv":
-                df.to_csv(output_path, index=False)
+                dataframe.to_csv(output_path, index=False)
             elif fmt == "parquet":
-                df.to_parquet(output_path, index=False)
+                dataframe.to_parquet(output_path, index=False)
             else:
                 payload = {
                     "metadata": self.metadata,
-                    "data": df.to_dict(orient="records"),
+                    "data": dataframe.to_dict(orient="records"),
                 }
                 output_path.write_text(json.dumps(payload, indent=2))
 

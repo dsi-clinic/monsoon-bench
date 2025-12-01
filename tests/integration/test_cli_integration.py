@@ -3,14 +3,20 @@
 Tests the complete workflow with mocked data and configurations.
 """
 
+from __future__ import annotations
+
 import os
 import tempfile
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
+
+if TYPE_CHECKING:
+    from typing import Self
 
 
 @pytest.fixture
@@ -137,7 +143,7 @@ class TestMainWorkflow:
     @patch("monsoonbench.cli.main.get_config")
     @patch("monsoonbench.cli.main.DeterministicOnsetMetrics")
     def test_deterministic_workflow(
-        self,
+        self: Self,
         mock_metrics_class,
         mock_get_config,
         mock_config,
@@ -175,7 +181,7 @@ class TestMainWorkflow:
     @patch("monsoonbench.cli.main.get_config")
     @patch("monsoonbench.cli.main.ClimatologyOnsetMetrics")
     def test_climatology_workflow(
-        self,
+        self: Self,
         mock_metrics_class,
         mock_get_config,
         mock_config,
@@ -215,7 +221,7 @@ class TestMainWorkflow:
     @patch("monsoonbench.cli.main.get_config")
     @patch("monsoonbench.cli.main.ProbabilisticOnsetMetrics")
     def test_probabilistic_workflow(
-        self,
+        self: Self,
         mock_metrics_class,
         mock_get_config,
         mock_config,
@@ -255,7 +261,7 @@ class TestToleranceDaysCalculation:
     @patch("monsoonbench.cli.main.get_config")
     @patch("monsoonbench.cli.main.DeterministicOnsetMetrics")
     def test_extended_range_tolerance(
-        self,
+        self: Self,
         mock_metrics_class,
         mock_get_config,
         mock_config,
@@ -289,7 +295,7 @@ class TestToleranceDaysCalculation:
     @patch("monsoonbench.cli.main.get_config")
     @patch("monsoonbench.cli.main.DeterministicOnsetMetrics")
     def test_subseasonal_tolerance(
-        self,
+        self: Self,
         mock_metrics_class,
         mock_get_config,
         mock_config,
@@ -327,7 +333,7 @@ class TestOutputGeneration:
     @patch("monsoonbench.cli.main.get_config")
     @patch("monsoonbench.cli.main.DeterministicOnsetMetrics")
     def test_netcdf_output_created(
-        self,
+        self: Self,
         mock_metrics_class,
         mock_get_config,
         mock_config,
@@ -361,7 +367,7 @@ class TestOutputGeneration:
     @patch("monsoonbench.cli.main.plot_spatial_metrics")
     @patch("pathlib.Path.mkdir")
     def test_plot_generated_when_plot_dir_specified(
-        self,
+        self: Self,
         mock_mkdir,
         mock_plot,
         mock_metrics_class,
@@ -404,7 +410,7 @@ class TestOutputGeneration:
     @patch("monsoonbench.cli.main.get_config")
     @patch("monsoonbench.cli.main.DeterministicOnsetMetrics")
     def test_no_plot_when_plot_dir_none(
-        self,
+        self: Self,
         mock_metrics_class,
         mock_get_config,
         mock_config,
@@ -439,7 +445,7 @@ class TestOutputGeneration:
     @patch("monsoonbench.cli.main.download_spatial_metrics_data")
     @patch("monsoonbench.cli.main.DeterministicOnsetMetrics")
     def test_visualization_download_requested(
-        self,
+        self: Self,
         mock_metrics_class,
         mock_download,
         mock_get_config,
@@ -481,7 +487,7 @@ class TestOutputGeneration:
     @patch("monsoonbench.cli.main.download_spatial_metrics_data")
     @patch("monsoonbench.cli.main.DeterministicOnsetMetrics")
     def test_visualization_download_defaults(
-        self,
+        self: Self,
         mock_metrics_class,
         mock_download,
         mock_get_config,
@@ -518,7 +524,7 @@ class TestOutputGeneration:
     @patch("monsoonbench.cli.main.download_spatial_metrics_data")
     @patch("monsoonbench.cli.main.DeterministicOnsetMetrics")
     def test_visualization_download_not_called_without_dir(
-        self,
+        self: Self,
         mock_metrics_class,
         mock_download,
         mock_get_config,
@@ -555,7 +561,7 @@ class TestDatasetAttributes:
     @patch("monsoonbench.cli.main.get_config")
     @patch("monsoonbench.cli.main.DeterministicOnsetMetrics")
     def test_dataset_attributes_set(
-        self,
+        self: Self,
         mock_metrics_class,
         mock_get_config,
         mock_config,

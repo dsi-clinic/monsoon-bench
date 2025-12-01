@@ -80,7 +80,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
                 
                 # Convert onset dates to day of year
                 onset_doy = onset_da.dt.dayofyear.astype(float)
-                onset_doy = onset_doy.where(~onset_da.isna())
+                onset_doy = onset_doy.where(~onset_da.isnull())  # noqa: PD003
                 
                 all_onset_days.append(onset_doy)
                 

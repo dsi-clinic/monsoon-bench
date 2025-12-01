@@ -8,11 +8,15 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import xarray as xr
 
 from ..base import BaseLoader
 from ..registry import register_loader
+
+if TYPE_CHECKING:
+    from typing import Self
 
 
 @register_loader("imd_rain")
@@ -27,7 +31,7 @@ class IMDRainLoader(BaseLoader):
     ensure_vars:   list[str] = field(default_factory=lambda: ["tp"])
     to_dataarray: bool = True
 
-    def _resolve_paths(self, folder: str, years: Iterable[int]) -> list[str]:
+    def _resolve_paths(self: Self, folder: str, years: Iterable[int]) -> list[str]:
         """Resolve file paths for the given years in the folder."""
         paths, missing = [], []
         folder_path = Path(folder)
@@ -48,12 +52,12 @@ class IMDRainLoader(BaseLoader):
             print(f"[imd_rain] Missing years (skipped): {missing}")
         return paths
 
-    def load(self) -> xr.DataArray:
+    def load(self: Self) -> xr.DataArray:
         """Load IMD rainfall data for the specified years."""
         if not self.root:
             raise ValueError("IMDRainLoader expects 'root' to point to the IMD folder.")
 
-        years = self.years if isinstance(self.years, Sequence) and not isinstance(self.years, (str, bytes)) else [self.years]
+        years = self.years if isinstance(self.years, Sequence) and not isinstance(self.years, str | bytes) else [self.years]
         paths = self._resolve_paths(self.root, years)
 
         ds = xr.open_mfdataset(
