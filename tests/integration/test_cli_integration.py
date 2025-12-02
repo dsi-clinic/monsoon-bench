@@ -3,9 +3,9 @@
 Tests the complete workflow with mocked data and configurations.
 """
 
-from unittest.mock import MagicMock, Mock, patch, mock_open
-import tempfile
 import os
+import tempfile
+from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import pandas as pd

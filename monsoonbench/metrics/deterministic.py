@@ -280,13 +280,12 @@ class DeterministicOnsetMetrics(OnsetMetricsBase):
 
         return metrics_df_dict, onset_da_dict
 
-
     @staticmethod
     def compute_metrics_multiple_years_from_loaders(
-        tp_forecast,   # (day, time, lat, lon)
-        tp_imd,      # (time, lat, lon)
-        thres_da,      # (lat, lon)
-        years= None,
+        tp_forecast,  # (day, time, lat, lon)
+        tp_imd,  # (time, lat, lon)
+        thres_da,  # (lat, lon)
+        years=None,
         tolerance_days=3,
         verification_window=1,
         forecast_days=15,
@@ -296,13 +295,12 @@ class DeterministicOnsetMetrics(OnsetMetricsBase):
         mok_month=6,
         mok_day=2,
     ):
-        """
-        Loader-based version of "compute_onset_metrics_for_multiple_years" using
+        """Loader-based version of "compute_onset_metrics_for_multiple_years" using
         three *loaded* DataArrays:
             - tp_forecast: model precip, dims ('day', 'time', 'lat', 'lon')
             - tp_imd: observed precip, dims ('time', 'lat', 'lon')
             - thres_da: threshold field, dims ('lat', 'lon')
-        
+
         Years are inferred from tp_forecast['time'] if not provided.
         """
         # Infer which years to process from forecast init_time
@@ -311,7 +309,6 @@ class DeterministicOnsetMetrics(OnsetMetricsBase):
             years = sorted(np.unique(init_times_all.year))
         else:
             years = sorted(int(y) for y in years)
-
 
         metrics_df_dict = {}
         onset_da_dict = {}
@@ -329,10 +326,8 @@ class DeterministicOnsetMetrics(OnsetMetricsBase):
 
             tp_fc_year = tp_forecast.sel(time=year_init_times)
 
-            p_model = (
-                tp_fc_year
-                .rename({"time": "init_time", "day": "step"})
-                .transpose("init_time", "lat", "lon", "step")
+            p_model = tp_fc_year.rename({"time": "init_time", "day": "step"}).transpose(
+                "init_time", "lat", "lon", "step"
             )
 
             # Drop day=0 if present
@@ -340,13 +335,13 @@ class DeterministicOnsetMetrics(OnsetMetricsBase):
                 p_model = p_model.sel(step=slice(1, None))
 
             # Slice IMD rainfall for this year
-            tp_imd_year = tp_imd.sel(
-                time=slice(f"{year}-01-01", f"{year}-12-31")
-            )
+            tp_imd_year = tp_imd.sel(time=slice(f"{year}-01-01", f"{year}-12-31"))
             tp_imd_year = tp_imd_year.load()
 
             # detect_observed_onset expects a rainfall DataArray with dims (time, lat, lon)
-            onset_da = OnsetMetricsBase.detect_observed_onset(tp_imd_year, thres_da, year, mok=mok)
+            onset_da = OnsetMetricsBase.detect_observed_onset(
+                tp_imd_year, thres_da, year, mok=mok
+            )
 
             onset_df = DeterministicOnsetMetrics.compute_onset_for_deterministic_model(
                 p_model,
@@ -374,6 +369,3 @@ class DeterministicOnsetMetrics(OnsetMetricsBase):
             print(f"Year {year} completed. Grid points processed: {len(metrics_df)}")
 
         return metrics_df_dict, onset_da_dict
-        
-
-

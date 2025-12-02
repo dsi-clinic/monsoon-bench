@@ -2,24 +2,24 @@
 from __future__ import annotations
 
 import os
-import xarray as xr
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from typing import Iterable, Sequence, Optional, Union
 
-from ..registry import register_loader
+import xarray as xr
+
 from ..base import BaseLoader
+from ..registry import register_loader
 
 
 @register_loader("deterministic_forecast")
 @dataclass
 class DeterministicForecastLoader(BaseLoader):
-    """
-    Loader for deterministic forecast rainfall (tp).
+    """Loader for deterministic forecast rainfall (tp).
 
     Assumptions:
     - One file per year, with filename: "{year}.nc". The root directory points to the folder
         these "{year}.nc" files exist
-    
+
     - Each file is an xarray.Dataset like:
 
         <xarray.Dataset>
@@ -40,7 +40,7 @@ class DeterministicForecastLoader(BaseLoader):
     file_patterns: tuple[str, ...] = ("{year}.nc",)
 
     # Use h5netcdf by default
-    engine: Optional[str] = "h5netcdf"
+    engine: str | None = "h5netcdf"
 
     # Coordinate names are expect to be day/time + lat/lon
     ensure_coords: list[str] = field(default_factory=lambda: ["day", "time"])
@@ -50,7 +50,6 @@ class DeterministicForecastLoader(BaseLoader):
 
     to_dataarray: bool = True
 
-    
     # ---------- helpers ----------
 
     def _seq(self, x) -> list[int]:
@@ -59,14 +58,12 @@ class DeterministicForecastLoader(BaseLoader):
             return list(x)
         return [int(x)]
 
-    def _resolve_paths(self, folder: str, years: Union[int, Iterable[int]]) -> list[str]:
-        """
-        Find all existing {year}.nc files for this deterministic model.
+    def _resolve_paths(self, folder: str, years: int | Iterable[int]) -> list[str]:
+        """Find all existing {year}.nc files for this deterministic model.
 
         We keep a friendly message listing missing years but don't hard-fail
         as long as at least one file is found.
         """
-
         # Normalize years to a concrete list so we can safely iterate & reuse
         if isinstance(years, int):
             year_list = [years]
@@ -106,7 +103,6 @@ class DeterministicForecastLoader(BaseLoader):
 
         return unique_paths
 
-
     # ---------- main entry point ----------
 
     def load(self) -> xr.Dataset | xr.DataArray:
@@ -123,7 +119,7 @@ class DeterministicForecastLoader(BaseLoader):
             paths,
             combine="by_coords",
             engine=self.engine,
-            chunks=self.chunks, 
+            chunks=self.chunks,
             decode_times=self.decode_times,
             parallel=True,
         )

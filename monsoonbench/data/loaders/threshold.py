@@ -1,10 +1,11 @@
 # monsoonbench/data/loaders/thresholds.py
 
 from __future__ import annotations
+
 import os
-import xarray as xr
 from dataclasses import dataclass, field
-from typing import Optional
+
+import xarray as xr
 
 from ..base import BaseLoader
 from ..registry import register_loader
@@ -13,8 +14,7 @@ from ..registry import register_loader
 @register_loader("onset_threshold")
 @dataclass
 class ThresholdLoader(BaseLoader):
-    """
-    Loader for onset threshold mean wet spell (MWmean)
+    """Loader for onset threshold mean wet spell (MWmean)
 
     The data file to be loaded contains:
       - data_var:  MWmean  (mean wet threshold)
@@ -53,8 +53,8 @@ class ThresholdLoader(BaseLoader):
 
         ds = xr.open_dataset(
             path,
-            engine=self.engine,          
-            chunks=self.chunks,  
+            engine=self.engine,
+            chunks=self.chunks,
             decode_times=self.decode_times,
         )
 

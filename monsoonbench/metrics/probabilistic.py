@@ -352,12 +352,11 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
 
         return metrics_df_dict, onset_da_dict
 
-
     @staticmethod
     def compute_metrics_multiple_years_from_loaders(
-        tp_forecast: xr.DataArray,   # (day, time, lat, lon, member)
-        tp_imd: xr.DataArray,        # (time, lat, lon)
-        thres_da: xr.DataArray,      # (lat, lon)
+        tp_forecast: xr.DataArray,  # (day, time, lat, lon, member)
+        tp_imd: xr.DataArray,  # (time, lat, lon)
+        thres_da: xr.DataArray,  # (lat, lon)
         years=None,
         tolerance_days: int = 3,
         verification_window: int = 1,
@@ -368,20 +367,19 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
         mok_month: int = 6,
         mok_day: int = 2,
     ):
-        """
-        Loader-based version of "compute_onset_metrics_for_multiple_years" using
+        """Loader-based version of "compute_onset_metrics_for_multiple_years" using
         three *loaded* DataArrays:
 
             - tp_forecast: Probabilistic model precip, dims ('day', 'time', 'lat', 'lon', 'member').
             - tp_imd: Observed precip, dims ('time', 'lat', 'lon').
             - thres_da: Threshold field, dims ('lat', 'lon').
-        
+
         Years are inferred from tp_forecast['time'] if not provided.
         """
         if "number" in tp_forecast.dims:
             tp_forecast = tp_forecast.rename({"number": "member"})
         elif "sample" in tp_forecast.dims:
-            tp_forecast = tp_forecast.rename({"sample": "member"}) 
+            tp_forecast = tp_forecast.rename({"sample": "member"})
 
         metrics_df_dict = {}
         onset_da_dict = {}
@@ -393,7 +391,6 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
         else:
             years = sorted(int(y) for y in years)
 
-    
         # Loop over years and reuse existing logic
         for year in years:
             print("\n" + "=" * 50)
@@ -410,10 +407,8 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
 
             tp_fc_year = tp_forecast.sel(time=year_init_times)
 
-            p_model = (
-                tp_fc_year
-                .rename({"time": "init_time", "day": "step"})
-                .transpose("init_time", "step", "lat", "lon", "member")
+            p_model = tp_fc_year.rename({"time": "init_time", "day": "step"}).transpose(
+                "init_time", "step", "lat", "lon", "member"
             )
 
             # Drop step=0 if present (lead 0), same as in get_forecast_probabilistic_twice_weekly
@@ -443,11 +438,13 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
             )
 
             # Existing contingency-table metrics (MAE/FAR/MR)
-            metrics_df, summary_stats = OnsetMetricsBase.compute_onset_metrics_with_windows(
-                onset_df,
-                tolerance_days=tolerance_days,
-                verification_window=verification_window,
-                forecast_days=forecast_days,
+            metrics_df, summary_stats = (
+                OnsetMetricsBase.compute_onset_metrics_with_windows(
+                    onset_df,
+                    tolerance_days=tolerance_days,
+                    verification_window=verification_window,
+                    forecast_days=forecast_days,
+                )
             )
 
             metrics_df_dict[year] = metrics_df

@@ -2,24 +2,24 @@
 from __future__ import annotations
 
 import os
-import xarray as xr
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from typing import Iterable, Sequence
 
-from ..registry import register_loader
+import xarray as xr
+
 from ..base import BaseLoader
+from ..registry import register_loader
 
 
 @register_loader("probabilistic_forecast")
 @dataclass
 class ProbabilisticForecastLoader(BaseLoader):
-    """
-    Loader for probabilistic (ensemble) forecast rainfall (tp).
+    """Loader for probabilistic (ensemble) forecast rainfall (tp).
 
     Assumptions:
     - One file per year, with filename: "{year}.nc". The root directory points to the folder
         these "{year}.nc" files exist
-    
+
     - Each file is an xarray.Dataset like:
 
         <xarray.Dataset>
@@ -44,25 +44,21 @@ class ProbabilisticForecastLoader(BaseLoader):
     file_patterns: tuple[str, ...] = ("{year}.nc",)
 
     # Coordinate names are expect to be day/time + lat/lon + member
-    ensure_coords: list[str] = field(
-        default_factory=lambda: ["time", "member"]
-    )
+    ensure_coords: list[str] = field(default_factory=lambda: ["time", "member"])
 
     # Require tp as the main data variable
-    ensure_vars: list[str] = field(
-        default_factory=lambda: ["tp"]
-    )
+    ensure_vars: list[str] = field(default_factory=lambda: ["tp"])
 
     to_dataarray: bool = True
 
-    def _resolve_paths(self, folder: str, years: Union[int, Iterable[int]]) -> list[str]:
-        """
-        Find all existing {year}.nc files for this probabilistic model.
+    def _resolve_paths(
+        self, folder: str, years: Union[int, Iterable[int]]
+    ) -> list[str]:
+        """Find all existing {year}.nc files for this probabilistic model.
 
         We keep a friendly message listing missing years but don't hard-fail
         as long as at least one file is found.
         """
-
         # Normalize years to a concrete list so we can safely iterate and reuse
         if isinstance(years, int):
             year_list = [years]
@@ -102,10 +98,8 @@ class ProbabilisticForecastLoader(BaseLoader):
 
         return unique_paths
 
-
     def load(self) -> xr.DataArray:
-        """
-        Open and combine all requested years into one Dataset/DataArray,
+        """Open and combine all requested years into one Dataset/DataArray,
         then run the common BaseLoader post-processing.
         """
         if not self.root:

@@ -31,11 +31,11 @@ def main() -> None:
 
     # Create DataLoader instance
     data_loader = load(
-        name = "imd_rain",
+        name="imd_rain",
         root=args.imd_folder,
         years=args.years,
         subset={"time": slice("2012-01-01", "2014-12-31")},
-        chunks={"time":64}
+        chunks={"time": 64},
     )
 
     # Initialize appropriate metrics class with DataLoader

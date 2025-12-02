@@ -24,23 +24,19 @@ Modules:
 """
 
 from monsoonbench._version import __version__
+from monsoonbench.cli.main import main
 
 # Public API
 from monsoonbench.config import load_config
-
-# from monsoonbench.data import DataLoader  # Zhenfei Commented this line out and add the following line
-from .data import load, get_registered, register_loader
-
+from monsoonbench.data import load
 from monsoonbench.metrics import (
     ClimatologyOnsetMetrics,
     DeterministicOnsetMetrics,
     ProbabilisticOnsetMetrics,
 )
 from monsoonbench.visualization.spatial import plot_spatial_metrics
-from monsoonbench.cli.main import main
-from monsoonbench.data import load
-# from monsoonbench.onset import detect_onset  # TODO: Implement if needed
-# from monsoonbench.visualization import create_scorecard  # TODO: Implement if needed
+
+from .data import get_registered, load, register_loader
 
 __all__ = [
     "__version__",
