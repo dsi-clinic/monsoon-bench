@@ -1,8 +1,10 @@
 # loaders/imd.py
 from __future__ import annotations
+
 from dataclasses import dataclass, field
-import os, xarray as xr
-from typing import Iterable, Sequence
+import os
+import xarray as xr
+from typing import Iterable, Sequence, Union
 from ..registry import register_loader
 from ..base import BaseLoader
 
@@ -16,21 +18,38 @@ class IMDRainLoader(BaseLoader):
     ensure_vars:   list[str] = field(default_factory=lambda: ["tp"])
     to_dataarray: bool = True
 
-    def _resolve_paths(self, folder: str, years: Iterable[int]) -> list[str]:
-        paths, missing = [], []
-        for y in years:
+    def _resolve_paths(self, folder: str, years: Union[int, Iterable[int]]) -> list[str]:
+        # Normalize years
+        if isinstance(years, int):
+            year_list = [years]
+        else:
+            # works for range, list, tuple, generator, etc.
+            year_list = list(years)
+
+        paths: list[str] = []
+        missing: list[int] = []
+
+        for y in year_list:
             found = None
             for pat in self.file_patterns:
                 p = os.path.join(folder, pat.format(year=y))
                 if os.path.exists(p):
-                    found = p; break
-            if found: paths.append(found)
-            else:     missing.append(y)
+                    found = p
+                    break
+            if found:
+                paths.append(found)
+            else:
+                missing.append(y)
+
         if not paths:
-            raise FileNotFoundError(f"No IMD files found in {folder} for years {list(years)}")
+            raise FileNotFoundError(
+                f"No IMD files found in {folder} for years {year_list}"
+            )
         if missing:
             print(f"[imd_rain] Missing years (skipped): {missing}")
+
         return paths
+
 
     def load(self) -> xr.DataArray:
         if not self.root:
@@ -41,13 +60,10 @@ class IMDRainLoader(BaseLoader):
 
         ds = xr.open_mfdataset(
             paths, combine="by_coords",
-            engine=self.engine, chunks=self.chunks, decode_times=self.decode_times, parallel=True
+            engine=self.engine, 
+            chunks=self.chunks, 
+            decode_times=self.decode_times, 
+            parallel=True
         )
-
-        # Ensure main var is 'tp'
-        if "tp" not in ds.data_vars:
-            for cand in ("RAINFALL", "rain", "precip", "pr"):
-                if cand in ds.data_vars:
-                    ds = ds.rename({cand: "tp"}); break
 
         return self._postprocess(ds)
