@@ -87,14 +87,8 @@ MonsoonBench’s CLI pipeline follows a clear sequence of steps from configurati
      - forecast windows  
      - MOK settings, etc.  
    - Dataset is saved to disk with `to_netcdf(output_file)`.
-
-7. Generate visualization (optional)  
-   - If `plot_dir` is provided, `monsoonbench.visualization.spatial.plot_spatial_metrics(...)`:
-     - Loads shapefiles (e.g., India states)  
-     - Plots MAE, FAR, and MR in a consistent layout  
-     - Saves a PNG “scorecard” map summarizing spatial performance.
-
-8. Print summary statistics  
+   
+7. Print summary statistics  
    - Command-line output summarizes overall mean MAE, FAR, and Miss Rate to give a quick performance snapshot.
 
 ![alt text](image-1.png)
