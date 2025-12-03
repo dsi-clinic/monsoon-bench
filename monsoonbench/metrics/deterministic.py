@@ -267,8 +267,8 @@ class DeterministicOnsetMetrics(OnsetMetricsBase):
                 max_forecast_day=max_forecast_day,
                 mok=mok,
                 onset_window=onset_window,
-                mok_month=6,
-                mok_day=2,
+                mok_month=mok_month,
+                mok_day=mok_day,
             )
 
             metrics_df, summary_stats = (

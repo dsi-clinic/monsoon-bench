@@ -440,7 +440,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         # Load threshold data
         thresh_ds = xr.open_dataset(thres_file)
         thres_da = thresh_ds["MWmean"]
-        
+
         metrics_df_dict = {}
         
         for year in years:
