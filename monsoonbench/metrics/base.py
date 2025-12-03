@@ -32,7 +32,9 @@ class OnsetMetricsBase:
                 break
 
         if imd_file is None:
-            available_files = [f.name for f in folder_path.iterdir() if f.suffix == ".nc"]
+            available_files = [
+                f.name for f in folder_path.iterdir() if f.suffix == ".nc"
+            ]
             raise FileNotFoundError(
                 f"No IMD file found for year {year} in {imd_folder}. "
                 f"Tried patterns: {file_patterns}. "
@@ -184,7 +186,7 @@ class OnsetMetricsBase:
 
             if idx % 10 == 0:
                 print(
-                    f"Processing grid point {idx+1}/{len(unique_locations)}: lat={lat:.2f}, lon={lon:.2f}"
+                    f"Processing grid point {idx + 1}/{len(unique_locations)}: lat={lat:.2f}, lon={lon:.2f}"
                 )
 
             grid_data = onset_df[

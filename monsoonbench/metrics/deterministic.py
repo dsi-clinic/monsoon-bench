@@ -118,7 +118,7 @@ class DeterministicOnsetMetrics(OnsetMetricsBase):
         for t_idx, init_time in enumerate(init_times):
             if t_idx % 5 == 0:
                 print(
-                    f"Processing init time {t_idx+1}/{len(init_times)}: {pd.to_datetime(init_time).strftime('%Y-%m-%d')}"
+                    f"Processing init time {t_idx + 1}/{len(init_times)}: {pd.to_datetime(init_time).strftime('%Y-%m-%d')}"
                 )
 
             init_date = pd.to_datetime(init_time)
@@ -218,7 +218,7 @@ class DeterministicOnsetMetrics(OnsetMetricsBase):
         print(f"Valid initializations processed: {valid_inits}")
         print(f"Onsets found: {onsets_found}")
         print(
-            f"Onset rate: {onsets_found/valid_inits:.3f}"
+            f"Onset rate: {onsets_found / valid_inits:.3f}"
             if valid_inits > 0
             else "Onset rate: 0.000"
         )
@@ -248,9 +248,9 @@ class DeterministicOnsetMetrics(OnsetMetricsBase):
         thres_da = thresh_ds["MWmean"]
 
         for year in years:
-            print(f"\n{'='*50}")
+            print(f"\n{'=' * 50}")
             print(f"Processing year {year}")
-            print(f"{'='*50}")
+            print(f"{'=' * 50}")
 
             p_model = DeterministicOnsetMetrics.get_forecast_deterministic_twice_weekly(
                 year, model_forecast_dir

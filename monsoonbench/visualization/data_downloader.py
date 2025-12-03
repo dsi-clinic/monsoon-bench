@@ -44,7 +44,9 @@ def _normalize_format(fmt: str | Path | None) -> str:
     return mapping.get(fmt_str, fmt_str)
 
 
-def _infer_metadata(dataset: xr.Dataset, metadata: Mapping[str, Any] | None) -> dict[str, Any]:
+def _infer_metadata(
+    dataset: xr.Dataset, metadata: Mapping[str, Any] | None
+) -> dict[str, Any]:
     """Build a metadata dictionary describing the dataset."""
     lat_range: list[float] | None = None
     lon_range: list[float] | None = None
@@ -59,7 +61,11 @@ def _infer_metadata(dataset: xr.Dataset, metadata: Mapping[str, Any] | None) -> 
                 lat_diff = np.diff(np.sort(lat_values))
                 with np.errstate(invalid="ignore"):
                     lat_resolution_val = np.nanmin(np.abs(lat_diff))
-                lat_resolution = float(lat_resolution_val) if np.isfinite(lat_resolution_val) else None
+                lat_resolution = (
+                    float(lat_resolution_val)
+                    if np.isfinite(lat_resolution_val)
+                    else None
+                )
 
     if "lon" in dataset.coords:
         lon_values = np.asarray(dataset["lon"].values, dtype=float)
@@ -69,7 +75,11 @@ def _infer_metadata(dataset: xr.Dataset, metadata: Mapping[str, Any] | None) -> 
                 lon_diff = np.diff(np.sort(lon_values))
                 with np.errstate(invalid="ignore"):
                     lon_resolution_val = np.nanmin(np.abs(lon_diff))
-                lon_resolution = float(lon_resolution_val) if np.isfinite(lon_resolution_val) else None
+                lon_resolution = (
+                    float(lon_resolution_val)
+                    if np.isfinite(lon_resolution_val)
+                    else None
+                )
 
     timestamp = datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
     base_metadata: dict[str, Any] = {
@@ -128,7 +138,9 @@ class VisualizationDataDownloader:
         """Return a dataset with the requested metric subset."""
         if metrics is None:
             return self._dataset
-        missing = [metric for metric in metrics if metric not in self._dataset.data_vars]
+        missing = [
+            metric for metric in metrics if metric not in self._dataset.data_vars
+        ]
         if missing:
             raise KeyError(f"Metrics not found in dataset: {missing}")
         return self._dataset[list(metrics)]

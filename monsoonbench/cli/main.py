@@ -34,11 +34,11 @@ def main() -> None:
 
     # Create DataLoader instance
     data_loader = load(
-        name = "imd_rain",
+        name="imd_rain",
         root=args.imd_folder,
         years=args.years,
         subset={"time": slice("2012-01-01", "2014-12-31")},
-        chunks={"time":64}
+        chunks={"time": 64},
     )
 
     # Initialize appropriate metrics class with DataLoader
@@ -150,8 +150,8 @@ def main() -> None:
     # Print summary statistics
     print("\n=== SUMMARY STATISTICS ===")
     print(f"Mean MAE: {float(ds['mean_mae'].mean().values):.2f} days")
-    print(f"Mean FAR: {float(ds['false_alarm_rate'].mean().values)*100:.1f}%")
-    print(f"Mean Miss Rate: {float(ds['miss_rate'].mean().values)*100:.1f}%")
+    print(f"Mean FAR: {float(ds['false_alarm_rate'].mean().values) * 100:.1f}%")
+    print(f"Mean Miss Rate: {float(ds['miss_rate'].mean().values) * 100:.1f}%")
 
 
 if __name__ == "__main__":

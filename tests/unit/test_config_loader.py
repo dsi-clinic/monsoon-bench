@@ -31,11 +31,16 @@ def test_load_config_reads_yaml(tmp_path: Path):
     assert cfg["years"] == [2020, 2021]
 
 
-def test_get_config_with_minimal_cli_args(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_get_config_with_minimal_cli_args(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     """get_config should parse CLI arguments and apply defaults."""
-    imd = tmp_path / "imd"; imd.mkdir()
-    thres = tmp_path / "threshold.nc"; thres.write_text("data")
-    shp = tmp_path / "india.shp"; shp.write_text("data")
+    imd = tmp_path / "imd"
+    imd.mkdir()
+    thres = tmp_path / "threshold.nc"
+    thres.write_text("data")
+    shp = tmp_path / "india.shp"
+    shp.write_text("data")
 
     argv = [
         "monsoonbench",
@@ -64,10 +69,14 @@ def test_get_config_with_minimal_cli_args(tmp_path: Path, monkeypatch: pytest.Mo
 
 def test_get_config_download_overrides(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """YAML values should be merged with CLI download overrides."""
-    imd = tmp_path / "imd"; imd.mkdir()
-    thres = tmp_path / "threshold.nc"; thres.write_text("data")
-    shp = tmp_path / "india.shp"; shp.write_text("data")
-    forecasts = tmp_path / "forecasts"; forecasts.mkdir()
+    imd = tmp_path / "imd"
+    imd.mkdir()
+    thres = tmp_path / "threshold.nc"
+    thres.write_text("data")
+    shp = tmp_path / "india.shp"
+    shp.write_text("data")
+    forecasts = tmp_path / "forecasts"
+    forecasts.mkdir()
 
     config_file = tmp_path / "config.yaml"
     _write_yaml(

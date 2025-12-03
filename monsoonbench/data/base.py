@@ -14,7 +14,6 @@ if TYPE_CHECKING:
     from typing import Self
 
 DEFAULT_VAR_ALIASES = {
-
     "RAINFALL": "tp",
     "rainfall": "tp",
     "Rainfall": "tp",
@@ -30,17 +29,14 @@ DEFAULT_VAR_ALIASES = {
     "RAIN": "tp",
     "pr": "tp",
     "PR": "tp",
-
     "latitude": "lat",
     "Latitude": "lat",
     "LATITUDE": "lat",
     "LAT": "lat",
-    
     "longitude": "lon",
     "Longitude": "lon",
     "LONGITUDE": "lon",
     "LON": "lon",
-
     "time": "time",
     "Time": "time",
     "TIME": "time",
@@ -50,6 +46,7 @@ DEFAULT_VAR_ALIASES = {
 }
 
 REQUIRED_COORDS_COMMON = ["lat", "lon"]
+
 
 @dataclass
 class BaseLoader:
@@ -70,6 +67,7 @@ class BaseLoader:
       - ensure_coords: list of coords to require, optional
       - to_dataarray: if True and Dataset has a single var, return DataArray
     """
+
     # Options:
     root: str | None = None
     chunks: dict[str, int] | None = None
@@ -89,12 +87,17 @@ class BaseLoader:
         """Create a loader instance from keyword arguments."""
         return cls(**kwargs)
 
-
-# ------ Helpers ------
-    def _apply_alias_renames(self: Self, ds: xr.Dataset | xr.DataArray) -> xr.Dataset | xr.DataArray:
+    # ------ Helpers ------
+    def _apply_alias_renames(
+        self: Self, ds: xr.Dataset | xr.DataArray
+    ) -> xr.Dataset | xr.DataArray:
         # Apply default aliases if present
         for src, tgt in DEFAULT_VAR_ALIASES.items():
-            if src in ds.dims or src in ds.coords or (hasattr(ds, "data_vars") and src in ds.data_vars):
+            if (
+                src in ds.dims
+                or src in ds.coords
+                or (hasattr(ds, "data_vars") and src in ds.data_vars)
+            ):
                 try:
                     ds = ds.rename({src: tgt})
                 except (ValueError, KeyError):
@@ -112,7 +115,9 @@ class BaseLoader:
         sel_kwargs = {k: v for k, v in self.subset.items() if k in ds.coords}
         return ds.sel(**sel_kwargs) if sel_kwargs else ds
 
-    def _drop_vars(self: Self, ds: xr.Dataset | xr.DataArray) -> xr.Dataset | xr.DataArray:
+    def _drop_vars(
+        self: Self, ds: xr.Dataset | xr.DataArray
+    ) -> xr.Dataset | xr.DataArray:
         if not self.drop_variables or not isinstance(ds, xr.Dataset):
             return ds
         keep = [v for v in ds.data_vars if v not in self.drop_variables]
@@ -133,16 +138,22 @@ class BaseLoader:
             if missing_vars:
                 raise ValueError(f"Missing required variables: {missing_vars}")
 
-    def _finalize(self: Self, ds: xr.Dataset | xr.DataArray) -> xr.Dataset | xr.DataArray:
+    def _finalize(
+        self: Self, ds: xr.Dataset | xr.DataArray
+    ) -> xr.Dataset | xr.DataArray:
         # Optionally coerce Dataset to DataArray if there is a single variable
         if self.to_dataarray and isinstance(ds, xr.Dataset):
             if len(ds.data_vars) == 1:
-                ds = next(iter(ds.data_vars.values())) 
+                ds = next(iter(ds.data_vars.values()))
             else:
-                raise ValueError("to_dataarray=True but dataset has multiple variables.")
+                raise ValueError(
+                    "to_dataarray=True but dataset has multiple variables."
+                )
         return ds
 
-    def _postprocess(self: Self, ds: xr.Dataset | xr.DataArray) -> xr.Dataset | xr.DataArray:
+    def _postprocess(
+        self: Self, ds: xr.Dataset | xr.DataArray
+    ) -> xr.Dataset | xr.DataArray:
         """Run after the subclass has opened/assembled the dataset.
 
         Order matters: rename -> subset -> drop -> ensure -> finalize

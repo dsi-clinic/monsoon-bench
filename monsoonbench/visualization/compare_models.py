@@ -62,6 +62,7 @@ def _validate_spatial_metrics_keys(
             "Expected at least 'mean_mae', 'false_alarm_rate', and 'miss_rate'.",
         )
 
+
 def _global_nanmean(arr: np.ndarray) -> float:
     if np.all(np.isnan(arr)):
         return float("nan")
@@ -84,7 +85,7 @@ def _summarize_single_model(
     """
     mean_mae = spatial_metrics["mean_mae"]
     far = spatial_metrics["false_alarm_rate"] * 100.0  # %
-    mr = spatial_metrics["miss_rate"] * 100.0          # %
+    mr = spatial_metrics["miss_rate"] * 100.0  # %
 
     lats = mean_mae.lat.to_numpy()
     lons = mean_mae.lon.to_numpy()
@@ -176,10 +177,11 @@ def create_model_comparison_table(
     existing_cols = [c for c in ordered_cols if c in comparison_df.columns]
     return comparison_df[existing_cols]
 
+
 def plot_model_comparison_dual_axis(
     comparison_df: pd.DataFrame,
-    mae_col: str = "cmz_mae_mean_days",      # CMZ MAE
-    mae_err_col: str = "cmz_mae_se_days",    # CMZ SE
+    mae_col: str = "cmz_mae_mean_days",  # CMZ MAE
+    mae_err_col: str = "cmz_mae_se_days",  # CMZ SE
     rate_cols: Sequence[str] = ("cmz_far_pct", "cmz_mr_pct"),
     figsize: tuple[float, float] = (10.0, 6.0),
     title: str | None = None,
@@ -206,9 +208,9 @@ def plot_model_comparison_dual_axis(
     width = 0.8 / float(n_bars)
 
     # --- aesthetic choices ---
-    mae_color = "#1f77b4"   # blue
-    far_color = "#ff7f0e"   # orange
-    mr_color = "#2ca02c"    # green
+    mae_color = "#1f77b4"  # blue
+    far_color = "#ff7f0e"  # orange
+    mr_color = "#2ca02c"  # green
     rate_colors = [far_color, mr_color][: len(rate_cols)]
 
     # Primary axis (MAE)
@@ -252,8 +254,10 @@ def plot_model_comparison_dual_axis(
         offset = (i - (n_bars - 1) / 2.0) * width
         values = comparison_df[col].to_numpy()
         label = (
-            "FAR (%)" if "far" in col.lower() else
-            "Miss Rate (%)" if "mr" in col.lower() or "miss" in col.lower()
+            "FAR (%)"
+            if "far" in col.lower()
+            else "Miss Rate (%)"
+            if "mr" in col.lower() or "miss" in col.lower()
             else col.replace("_", " ").title()
         )
 
@@ -296,6 +300,7 @@ def plot_model_comparison_dual_axis(
     )
     fig.tight_layout()
     return fig, (ax_left, ax_right)
+
 
 def compare_models(
     model_spatial_metrics: dict[str, Mapping[str, xr.DataArray]],
