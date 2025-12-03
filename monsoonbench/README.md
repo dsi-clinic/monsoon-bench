@@ -91,6 +91,5 @@ MonsoonBench’s CLI pipeline follows a clear sequence of steps from configurati
 7. Print summary statistics  
    - Command-line output summarizes overall mean MAE, FAR, and Miss Rate to give a quick performance snapshot.
 
-![alt text](image-1.png)
-
+      ![alt text](image-1.png)
 
