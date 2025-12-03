@@ -4,31 +4,38 @@ Tests the main CLI entry point including imports, class instantiation,
 and method availability.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import pytest
+
+if TYPE_CHECKING:
+    from typing import Self
 
 
 class TestCliImports:
     """Test that all required imports work."""
 
-    def test_import_os(self):
+    def test_import_os(self: Self):
         """Test os module import."""
         import os
 
         assert os is not None
 
-    def test_import_xarray(self):
+    def test_import_xarray(self: Self):
         """Test xarray import."""
         import xarray as xr
 
         assert xr is not None
 
-    def test_import_config(self):
+    def test_import_config(self: Self):
         """Test config module import."""
         from monsoonbench.config import get_config
 
         assert callable(get_config)
 
-    def test_import_metrics_classes(self):
+    def test_import_metrics_classes(self: Self):
         """Test metrics classes import."""
         from monsoonbench.metrics import (
             ClimatologyOnsetMetrics,
@@ -40,13 +47,13 @@ class TestCliImports:
         assert DeterministicOnsetMetrics is not None
         assert ProbabilisticOnsetMetrics is not None
 
-    def test_import_visualization(self):
+    def test_import_visualization(self: Self):
         """Test visualization function import."""
         from monsoonbench.visualization.spatial import plot_spatial_metrics
 
         assert callable(plot_spatial_metrics)
 
-    def test_import_main_function(self):
+    def test_import_main_function(self: Self):
         """Test main function import."""
         from monsoonbench.cli.main import main
 
@@ -56,7 +63,7 @@ class TestCliImports:
 class TestMetricsClasses:
     """Test metrics classes have required methods."""
 
-    def test_climatology_has_required_methods(self):
+    def test_climatology_has_required_methods(self: Self):
         """Test ClimatologyOnsetMetrics has all required methods."""
         from monsoonbench.metrics import ClimatologyOnsetMetrics
 
@@ -80,7 +87,7 @@ class TestMetricsClasses:
             ClimatologyOnsetMetrics, OnsetMetricsBase
         ), "ClimatologyOnsetMetrics should inherit from OnsetMetricsBase"
 
-    def test_deterministic_has_required_methods(self):
+    def test_deterministic_has_required_methods(self: Self):
         """Test DeterministicOnsetMetrics has all required methods."""
         from monsoonbench.metrics import DeterministicOnsetMetrics
 
@@ -96,7 +103,7 @@ class TestMetricsClasses:
                 DeterministicOnsetMetrics, method
             ), f"DeterministicOnsetMetrics missing method: {method}"
 
-    def test_probabilistic_has_required_methods(self):
+    def test_probabilistic_has_required_methods(self: Self):
         """Test ProbabilisticOnsetMetrics has all required methods."""
         from monsoonbench.metrics import ProbabilisticOnsetMetrics
 
@@ -112,7 +119,7 @@ class TestMetricsClasses:
                 ProbabilisticOnsetMetrics, method
             ), f"ProbabilisticOnsetMetrics missing method: {method}"
 
-    def test_base_class_has_required_methods(self):
+    def test_base_class_has_required_methods(self: Self):
         """Test OnsetMetricsBase has required methods."""
         from monsoonbench.metrics.base import OnsetMetricsBase
 
@@ -131,13 +138,13 @@ class TestMetricsClasses:
 class TestVisualization:
     """Test visualization functions."""
 
-    def test_plot_spatial_metrics_exists(self):
+    def test_plot_spatial_metrics_exists(self: Self):
         """Test plot_spatial_metrics function exists and is callable."""
         from monsoonbench.visualization.spatial import plot_spatial_metrics
 
         assert callable(plot_spatial_metrics)
 
-    def test_plot_spatial_metrics_signature(self):
+    def test_plot_spatial_metrics_signature(self: Self):
         """Test plot_spatial_metrics has correct signature."""
         import inspect
 
@@ -158,13 +165,13 @@ class TestVisualization:
 class TestMainFunction:
     """Test the main CLI function."""
 
-    def test_main_function_exists(self):
+    def test_main_function_exists(self: Self):
         """Test main function exists."""
         from monsoonbench.cli.main import main
 
         assert callable(main)
 
-    def test_main_function_signature(self):
+    def test_main_function_signature(self: Self):
         """Test main function has correct signature."""
         import inspect
 
@@ -178,7 +185,7 @@ class TestMainFunction:
         ]
         assert len(required_params) == 0, "main() should not have required parameters"
 
-    def test_main_return_type(self):
+    def test_main_return_type(self: Self):
         """Test main function returns None."""
         import inspect
 
@@ -197,7 +204,7 @@ class TestMainFunction:
 class TestMetricsMethodSignatures:
     """Test method signatures of metrics classes."""
 
-    def test_climatology_baseline_signature(self):
+    def test_climatology_baseline_signature(self: Self):
         """Test compute_climatology_baseline_multiple_years signature."""
         import inspect
 
@@ -213,7 +220,7 @@ class TestMetricsMethodSignatures:
         assert "imd_folder" in params
         assert "thres_file" in params
 
-    def test_deterministic_metrics_signature(self):
+    def test_deterministic_metrics_signature(self: Self):
         """Test compute_metrics_multiple_years signature for deterministic."""
         import inspect
 
@@ -230,7 +237,7 @@ class TestMetricsMethodSignatures:
         assert "imd_folder" in params
         assert "thres_file" in params
 
-    def test_probabilistic_metrics_signature(self):
+    def test_probabilistic_metrics_signature(self: Self):
         """Test compute_metrics_multiple_years signature for probabilistic."""
         import inspect
 
@@ -247,7 +254,7 @@ class TestMetricsMethodSignatures:
         assert "imd_folder" in params
         assert "thres_file" in params
 
-    def test_create_spatial_far_mr_mae_signature(self):
+    def test_create_spatial_far_mr_mae_signature(self: Self):
         """Test create_spatial_far_mr_mae signature."""
         import inspect
 
@@ -272,13 +279,13 @@ class TestMetricsMethodSignatures:
 class TestMetricsClassSelection:
     """Test that correct metrics class is used for each model type."""
 
-    def test_class_exists_for_model_type(self, model_type, metrics_class):
+    def test_class_exists_for_model_type(self: Self, model_type, metrics_class):
         """Test that metrics class exists for each model type."""
         from monsoonbench import metrics
 
         assert hasattr(metrics, metrics_class)
 
-    def test_class_has_compute_method(self, model_type, metrics_class):
+    def test_class_has_compute_method(self: Self, model_type, metrics_class):
         """Test that each class has appropriate compute method."""
         from monsoonbench import metrics
 
