@@ -32,6 +32,11 @@ netcdf4 = [
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.ruff]
+exclude = [
+  "examples/demo_notebooks/researcher_use_case_benchmark.ipynb",
+]
+
 [tool.ruff.lint]
 extend-select = [
   # by default, ruff enables all F and a subset of E rules
