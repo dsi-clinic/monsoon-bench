@@ -7,12 +7,14 @@ RUN apt-get update && apt-get install -y curl git cdo
 WORKDIR /project
 
 COPY pyproject.toml .
+COPY README.md .
+COPY monsoonbench/ ./monsoonbench/
 
 # Resolve and install Python packages from pyproject/uv.lock
 RUN /usr/local/bin/uv venv
 ENV VIRTUAL_ENV=/project/.venv
 ENV PATH="/project/.venv/bin:$PATH"
-ENV PYTHONPATH=/project/src
-RUN uv sync
+ENV PYTHONPATH=/project
+RUN uv sync --extra netcdf4
 
 CMD ["/bin/bash"]

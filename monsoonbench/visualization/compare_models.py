@@ -236,7 +236,7 @@ def plot_model_comparison_dual_axis(
     else:
         mae_err = None
 
-    mae_bars = ax_left.bar(
+    ax_left.bar(
         x + mae_offset,
         mae_values,
         width=width,
@@ -310,6 +310,7 @@ def compare_models(
     title: str | None = None,
     rotation: int = 0,
 ) -> tuple[pd.DataFrame, plt.Figure, tuple[plt.Axes, plt.Axes]]:
+    """Compare multiple models by creating a table and dual-axis plot."""
     comparison_df = create_model_comparison_table(model_spatial_metrics)
     fig, (ax_left, ax_right) = plot_model_comparison_dual_axis(
         comparison_df=comparison_df,

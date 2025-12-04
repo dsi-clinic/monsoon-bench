@@ -1,3 +1,8 @@
+"""Base loader class for dataset loading.
+
+This module provides the BaseLoader class that all dataset loaders inherit from.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -15,6 +20,13 @@ The names of variables/coordinates in your data should be set as:
 The following aliases are just aiming to make the life our users easier. If your
 variables use different names please make change accordingly.
 """
+from typing import TYPE_CHECKING, Any
+
+import xarray as xr
+
+if TYPE_CHECKING:
+    from typing import Self
+
 DEFAULT_VAR_ALIASES = {
     "RAINFALL": "tp",
     "rainfall": "tp",
@@ -80,15 +92,17 @@ class BaseLoader:
     subset: dict[str, Any] = field(default_factory=dict)
 
     ensure_vars: list[str] | None = None
+    ensure_coords: list[str] | None = None
     to_dataarray: bool = False
 
     @classmethod
-    def from_kwargs(cls, **kwargs) -> BaseLoader:
+    def from_kwargs(cls: type[Self], **kwargs) -> Self:  # type: ignore[no-untyped-def]
+        """Create a loader instance from keyword arguments."""
         return cls(**kwargs)
 
     # ------ Helpers ------
     def _apply_alias_renames(
-        self, ds: xr.Dataset | xr.DataArray
+        self: Self, ds: xr.Dataset | xr.DataArray
     ) -> xr.Dataset | xr.DataArray:
         # Apply default aliases if present
         for src, tgt in DEFAULT_VAR_ALIASES.items():
@@ -99,15 +113,15 @@ class BaseLoader:
             ):
                 try:
                     ds = ds.rename({src: tgt})
-                except Exception:
+                except (ValueError, KeyError):
                     # If rename fails, ignore and let explicit map handle it
-                    pass
-        # Apply explicit user-provided rename
+                    continue
+        # Apply explicit user-provided rename (takes precedence)
         if self.rename:
             ds = ds.rename(self.rename)
         return ds
 
-    def _subset(self, ds: xr.Dataset | xr.DataArray) -> xr.Dataset | xr.DataArray:
+    def _subset(self: Self, ds: xr.Dataset | xr.DataArray) -> xr.Dataset | xr.DataArray:
         if not self.subset:
             return ds
 
@@ -156,20 +170,24 @@ class BaseLoader:
                 ds = ds.sel({dim: unique_labels})
         return ds
 
-    def _drop_vars(self, ds: xr.Dataset | xr.DataArray) -> xr.Dataset | xr.DataArray:
+    def _drop_vars(
+        self: Self, ds: xr.Dataset | xr.DataArray
+    ) -> xr.Dataset | xr.DataArray:
         if not self.drop_variables or not isinstance(ds, xr.Dataset):
             return ds
         keep = [v for v in ds.data_vars if v not in self.drop_variables]
         return ds[keep]
 
-    def _ensure(self, ds: xr.Dataset | xr.DataArray) -> None:
-        # Ensure the variables of interest are actually there
+    def _ensure(self: Self, ds: xr.Dataset | xr.DataArray) -> None:
+        # Ensure variable exists
         if self.ensure_vars and isinstance(ds, xr.Dataset):
             missing_vars = [v for v in self.ensure_vars if v not in ds.data_vars]
             if missing_vars:
                 raise ValueError(f"Missing required variables: {missing_vars}")
 
-    def _finalize(self, ds: xr.Dataset | xr.DataArray) -> xr.Dataset | xr.DataArray:
+    def _finalize(
+        self: Self, ds: xr.Dataset | xr.DataArray
+    ) -> xr.Dataset | xr.DataArray:
         # Optionally coerce Dataset to DataArray if there is a single variable
         if self.to_dataarray and isinstance(ds, xr.Dataset):
             if len(ds.data_vars) == 1:
@@ -180,8 +198,11 @@ class BaseLoader:
                 )
         return ds
 
-    def _postprocess(self, ds: xr.Dataset | xr.DataArray) -> xr.Dataset | xr.DataArray:
+    def _postprocess(
+        self: Self, ds: xr.Dataset | xr.DataArray
+    ) -> xr.Dataset | xr.DataArray:
         """Run after the subclass has opened/assembled the dataset.
+
         Order matters: rename -> subset -> drop -> ensure -> finalize
         """
         ds = self._apply_alias_renames(ds)
@@ -192,6 +213,6 @@ class BaseLoader:
         return ds
 
     # ------ What subclasses must implement ------
-    def load(self) -> xr.Dataset | xr.DataArray:
+    def load(self: Self) -> xr.Dataset | xr.DataArray:
         """Return xr.Dataset or xr.DataArray. Must call self._postprocess(...) before returning."""
         raise NotImplementedError("Implement in subclasses")

@@ -28,7 +28,7 @@ from monsoonbench.cli.main import main
 
 # Public API
 from monsoonbench.config import load_config
-from monsoonbench.data import load
+from monsoonbench.data import get_registered, load, register_loader
 from monsoonbench.metrics import (
     ClimatologyOnsetMetrics,
     DeterministicOnsetMetrics,
@@ -36,10 +36,12 @@ from monsoonbench.metrics import (
 )
 from monsoonbench.visualization.spatial import plot_spatial_metrics
 
-from .data import get_registered, load, register_loader
+# from monsoonbench.onset import detect_onset  # TODO: Implement if needed
+# from monsoonbench.visualization import create_scorecard  # TODO: Implement if needed
 
 __all__ = [
     "__version__",
+    "main",
     "load",
     "get_registered",
     "register_loader",
@@ -48,6 +50,4 @@ __all__ = [
     "ClimatologyOnsetMetrics",
     "load_config",
     "plot_spatial_metrics",
-    # "detect_onset",  # TODO: Implement if needed
-    # "create_scorecard",  # TODO: Implement if needed
 ]

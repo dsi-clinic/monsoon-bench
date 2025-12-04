@@ -19,6 +19,7 @@ dependencies = [
   "geopandas>=1.1.1",
   "matplotlib>=3.10.6",
   "zarr>=3.1.3",
+  "scipy>=1.11.0"
 ]
 
 [project.optional-dependencies]
@@ -30,6 +31,11 @@ netcdf4 = [
 [build-system]
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+exclude = [
+  "examples/demo_notebooks/researcher_use_case_benchmark.ipynb",
+]
 
 [tool.ruff.lint]
 extend-select = [
@@ -55,9 +61,28 @@ extend-select = [
 
 ignore = [
   "D415",   # allow first line of doctstrings to end without punctuation
+  "ANN001", # missing type annotation for function argument (too strict)
   "ANN002", # missing type on *args
   "ANN003", # missing type on **kwargs
-  "B905"    # won't work on python <3.10
+  "ANN205", # missing return type for staticmethod (too strict for existing code)
+  "ANN202", # missing return type for private function
+  "PD011",  # use .to_numpy() instead of .values (stylistic)
+  "PLR2004",# magic values (too many in scientific code)
+  "B905",   # won't work on python <3.10
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+  "S101",    # allow assert in tests
+  "ANN001",  # don't require type annotations for test function args
+  "ANN201",  # don't require return type annotations in tests
+  "D100",    # don't require module docstrings in tests
+  "D103",    # don't require function docstrings in tests
+  "E702",    # allow multiple statements on one line in tests
+  "F841",    # allow unused variables in tests
+  "PTH103",  # allow os.makedirs in tests
+  "PTH118",  # allow os.path.join in tests
+  "PTH123",  # allow open() in tests
 ]
 
 [tool.ruff.lint.pydocstyle]

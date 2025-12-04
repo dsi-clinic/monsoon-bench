@@ -5,6 +5,7 @@ from monsoonbench.visualization.compare_models import (
     create_model_comparison_table,
     plot_model_comparison_dual_axis,
 )
+from monsoonbench.visualization.data_downloader import download_spatial_metrics_data
 from monsoonbench.visualization.spatial import plot_spatial_metrics
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "create_model_comparison_table",
     "plot_model_comparison_dual_axis",
     "compare_models",
+    "download_spatial_metrics_data",
 ]

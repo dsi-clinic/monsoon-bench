@@ -1,12 +1,16 @@
-import glob
-import os
+"""Climatology onset metrics computation.
+
+This module provides the ClimatologyOnsetMetrics class for computing
+climatological baseline metrics for monsoon onset prediction.
+"""
+
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import xarray as xr
 
-# import warnings
 from .base import OnsetMetricsBase
 
 
@@ -30,11 +34,12 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         thres_da = thresh_ds["MWmean"]
 
         # Find all IMD files and extract years
-        imd_files = glob.glob(os.path.join(imd_folder, "*.nc"))
+        imd_folder_path = Path(imd_folder)
+        imd_files = list(imd_folder_path.glob("*.nc"))
         years = []
 
         for file_path in imd_files:
-            filename = os.path.basename(file_path)
+            filename = file_path.name
             # Remove .nc extension
             name_without_ext = filename.replace(".nc", "")
 
@@ -85,7 +90,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
 
                 # Convert onset dates to day of year
                 onset_doy = onset_da.dt.dayofyear.astype(float)
-                onset_doy = onset_doy.where(~onset_da.isnull())
+                onset_doy = onset_doy.where(~onset_da.isnull())  # noqa: PD003
 
                 all_onset_days.append(onset_doy)
 
@@ -109,7 +114,8 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
 
     @staticmethod
     def get_initialization_dates(year):
-        """Get initialization dates (Mondays and Thursdays from May-July) for a given year.
+        """Get initialization dates (Mondays and Thursdays from May-July).
+
         Uses the same logic as get_s2s_deterministic_twice_weekly but only returns dates.
         """
         # Define date range from May 1 to July 31 of 2024 (template)
@@ -139,6 +145,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         mok_day=2,
     ):
         """Use climatology as a forecast model for the given initialization dates.
+
         Only processes forecasts initialized before the observed onset date.
 
         Parameters:
@@ -175,7 +182,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         for t_idx, init_time in enumerate(init_dates):
             if t_idx % 5 == 0:  # Print progress every 5 init times
                 print(
-                    f"Processing init time {t_idx+1}/{len(init_dates)}: {init_time.strftime('%Y-%m-%d')}"
+                    f"Processing init time {t_idx + 1}/{len(init_dates)}: {init_time.strftime('%Y-%m-%d')}"
                 )
 
             init_date = pd.to_datetime(init_time)
@@ -188,7 +195,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
                     # Get observed onset date for this grid point
                     try:
                         obs_onset = observed_onset_da.isel(lat=i, lon=j).values
-                    except:
+                    except (IndexError, KeyError):
                         skipped_no_obs += 1
                         continue
 
@@ -220,7 +227,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
                             days=int(clim_onset_doy) - 1
                         )
                         clim_onset_date = pd.to_datetime(clim_onset_date)
-                    except:
+                    except (ValueError, OverflowError):
                         continue  # Skip if invalid day of year
 
                     # Check if climatological onset is within forecast window
@@ -280,7 +287,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         print(f"Valid initializations processed: {valid_inits}")
         print(f"Onsets forecasted: {onsets_forecasted}")
         print(
-            f"Forecast rate: {onsets_forecasted/valid_inits:.3f}"
+            f"Forecast rate: {onsets_forecasted / valid_inits:.3f}"
             if valid_inits > 0
             else "Forecast rate: 0.000"
         )
@@ -334,7 +341,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
 
             if idx % 10 == 0:  # Progress update
                 print(
-                    f"Processing grid point {idx+1}/{len(unique_locations)}: lat={lat:.2f}, lon={lon:.2f}"
+                    f"Processing grid point {idx + 1}/{len(unique_locations)}: lat={lat:.2f}, lon={lon:.2f}"
                 )
 
             # Get all climatology forecasts for this grid point
@@ -507,9 +514,9 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         metrics_df_dict = {}
 
         for year in years:
-            print(f"\n{'='*50}")
+            print(f"\n{'=' * 50}")
             print(f"Evaluating climatology baseline for year {year}")
-            print(f"{'='*50}")
+            print(f"{'=' * 50}")
 
             # Get initialization dates for this year (same as model would use)
             init_dates = ClimatologyOnsetMetrics.get_initialization_dates(year)

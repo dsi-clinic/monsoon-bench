@@ -1,19 +1,32 @@
-# loaders/imd.py
+"""IMD rainfall data loader.
+
+This module provides a loader for Indian Meteorological Department rainfall data.
+"""
+
 from __future__ import annotations
 
 import os
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 import xarray as xr
 
 from ..base import BaseLoader
 from ..registry import register_loader
 
+if TYPE_CHECKING:
+    from typing import Self
+
 
 @register_loader("imd_rain")
 @dataclass
 class IMDRainLoader(BaseLoader):
+    """Loader for IMD rainfall data files."""
+
     # Accept one year (int) or many (Sequence[int])
     years: Sequence[int] | int = 2021
     file_patterns: tuple[str, ...] = ("data_{year}.nc",)
@@ -53,7 +66,8 @@ class IMDRainLoader(BaseLoader):
 
         return paths
 
-    def load(self) -> xr.DataArray:
+    def load(self: Self) -> xr.DataArray:
+        """Load IMD rainfall data for the specified years."""
         if not self.root:
             raise ValueError("IMDRainLoader expects 'root' to point to the IMD folder.")
 
