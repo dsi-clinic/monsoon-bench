@@ -303,7 +303,9 @@ class DeterministicOnsetMetrics(OnsetMetricsBase):
         mok_day=2,
     ):
         """Loader-based version of "compute_onset_metrics_for_multiple_years" using
+
         three *loaded* DataArrays:
+
             - tp_forecast: model precip, dims ('day', 'time', 'lat', 'lon')
             - tp_imd: observed precip, dims ('time', 'lat', 'lon')
             - thres_da: threshold field, dims ('lat', 'lon')

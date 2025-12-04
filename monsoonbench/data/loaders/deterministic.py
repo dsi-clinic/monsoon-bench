@@ -1,4 +1,6 @@
 # loaders/deterministic.py
+"""Deterministic forecast data loader for the monsoon benchmark."""
+
 from __future__ import annotations
 
 import os
@@ -54,7 +56,7 @@ class DeterministicForecastLoader(BaseLoader):
 
     def _seq(self, x) -> list[int]:
         """Normalize an int or sequence of int to a list[int]."""
-        if isinstance(x, Sequence) and not isinstance(x, (str, bytes)):
+        if isinstance(x, Sequence) and not isinstance(x, str | bytes):
             return list(x)
         return [int(x)]
 
@@ -106,6 +108,7 @@ class DeterministicForecastLoader(BaseLoader):
     # ---------- main entry point ----------
 
     def load(self) -> xr.Dataset | xr.DataArray:
+        """Load deterministic forecast data and apply common post-processing."""
         if not self.root:
             raise ValueError("DeterministicForecastLoader expects 'root' directory.")
 

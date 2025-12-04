@@ -8,9 +8,6 @@ from __future__ import annotations
 import os
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from collections.abc import Iterable, Sequence
-from dataclasses import dataclass, field
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import xarray as xr
@@ -74,7 +71,7 @@ class IMDRainLoader(BaseLoader):
         years = (
             self.years
             if isinstance(self.years, Sequence)
-            and not isinstance(self.years, (str, bytes))
+            and not isinstance(self.years, str | bytes)
             else [self.years]
         )
         paths = self._resolve_paths(self.root, years)

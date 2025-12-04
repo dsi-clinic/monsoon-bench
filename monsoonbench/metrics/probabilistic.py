@@ -376,6 +376,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
         mok_day: int = 2,
     ):
         """Loader-based version of "compute_onset_metrics_for_multiple_years" using
+
         three *loaded* DataArrays:
 
             - tp_forecast: Probabilistic model precip, dims ('day', 'time', 'lat', 'lon', 'member').

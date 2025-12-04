@@ -6,9 +6,13 @@ This module provides the BaseLoader class that all dataset loaders inherit from.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import xarray as xr
+
+if TYPE_CHECKING:
+    from typing import Self
+
 
 """
 The names of variables/coordinates in your data should be set as:
@@ -20,12 +24,6 @@ The names of variables/coordinates in your data should be set as:
 The following aliases are just aiming to make the life our users easier. If your
 variables use different names please make change accordingly.
 """
-from typing import TYPE_CHECKING, Any
-
-import xarray as xr
-
-if TYPE_CHECKING:
-    from typing import Self
 
 DEFAULT_VAR_ALIASES = {
     "RAINFALL": "tp",
@@ -136,7 +134,7 @@ class BaseLoader:
 
         for dim, v in subset_filtered.items():
             if (
-                isinstance(v, (list, tuple))
+                isinstance(v, list | tuple)
                 and v
                 and all(isinstance(x, slice) for x in v)
             ):

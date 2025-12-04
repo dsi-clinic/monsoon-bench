@@ -1,4 +1,5 @@
 # monsoonbench/data/loaders/thresholds.py
+"""Threshold data loader for the monsoon benchmark."""
 
 from __future__ import annotations
 
@@ -49,6 +50,7 @@ class ThresholdLoader(BaseLoader):
         return path
 
     def load(self) -> xr.Dataset | xr.DataArray:
+        """Load threshold dataset and apply common post-processing."""
         path = self._build_path()
 
         ds = xr.open_dataset(

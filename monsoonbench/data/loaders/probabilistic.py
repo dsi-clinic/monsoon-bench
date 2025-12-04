@@ -1,8 +1,10 @@
 # monsoonbench/data/loaders/probabilistic.py
+"""Probabilistic forecast data loader for the monsoon benchmark."""
+
 from __future__ import annotations
 
 import os
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Sequence, Union
 from dataclasses import dataclass, field
 
 import xarray as xr
@@ -99,9 +101,7 @@ class ProbabilisticForecastLoader(BaseLoader):
         return unique_paths
 
     def load(self) -> xr.DataArray:
-        """Open and combine all requested years into one Dataset/DataArray,
-        then run the common BaseLoader post-processing.
-        """
+        """Load probabilistic forecast data and apply common post-processing."""
         if not self.root:
             raise ValueError(
                 "ProbabilisticForecastLoader expects 'root' to point to the "
@@ -109,9 +109,7 @@ class ProbabilisticForecastLoader(BaseLoader):
             )
 
         # Normalize years to a list
-        if isinstance(self.years, Sequence) and not isinstance(
-            self.years, (str, bytes)
-        ):
+        if isinstance(self.years, Sequence) and not isinstance(self.years, str | bytes):
             years = list(self.years)
         else:
             years = [int(self.years)]
@@ -127,5 +125,4 @@ class ProbabilisticForecastLoader(BaseLoader):
             parallel=True,
         )
 
-        # Let BaseLoader handle subset / coord checks / DataArray conversion, etc.
         return self._postprocess(ds)

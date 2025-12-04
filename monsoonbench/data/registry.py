@@ -5,7 +5,6 @@ This module provides a registry system for registering and loading data loaders.
 
 from __future__ import annotations
 
-from typing import Any
 from collections.abc import Callable
 
 import xarray as xr
