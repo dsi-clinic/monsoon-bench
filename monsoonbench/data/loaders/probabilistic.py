@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Iterable, Sequence, Union
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 
 import xarray as xr
@@ -54,7 +54,9 @@ class ProbabilisticForecastLoader(BaseLoader):
     to_dataarray: bool = True
 
     def _resolve_paths(
-        self, folder: str, years: Union[int, Iterable[int]]
+        self,
+        folder: str,
+        years: int | Iterable[int],
     ) -> list[str]:
         """Find all existing {year}.nc files for this probabilistic model.
 
