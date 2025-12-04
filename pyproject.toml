@@ -69,6 +69,9 @@ ignore = [
   "PD011",  # use .to_numpy() instead of .values (stylistic)
   "PLR2004",# magic values (too many in scientific code)
   "B905",   # won't work on python <3.10
+  "PTH110", # relax PTH rules
+  "PTH118", # relax PTH rules
+  "ANN101", #Relax type rule for self
 ]
 
 [tool.ruff.lint.per-file-ignores]
