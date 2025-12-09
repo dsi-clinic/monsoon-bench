@@ -3,6 +3,8 @@
 name = "monsoonbench"
 requires-python = ">=3.12"
 version = "0.1.1"
+readme = "README.md"
+description = "A reproducible benchmarking framework for Indian monsoon onset prediction"
 dependencies = [
   "pandas~=2.1",
   "python-dotenv~=1.0.0",
