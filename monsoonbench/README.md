@@ -40,11 +40,28 @@ Inputs (forecasts, IMD rainfall, thresholds)
 
 ---
 
-# Quick Start 
+# Quick Start
 
-<!-- WHAT TO WRITE 
-Installation instructions
--->
+## Installation
+
+MonsoonBench is currently published on TestPyPI for pre-release testing.  
+You can install version `0.1.0` using:
+
+```bash
+pip install -i https://test.pypi.org/simple/ \
+    --extra-index-url https://pypi.org/simple/ \
+    monsoonbench==0.1.0
+```
+
+This command tells pip to look for the package on TestPyPI first, and fall back to the main PyPI index for dependencies.
+
+After installation, verify that the CLI is available:
+
+```bash
+monsoonbench --help
+```
+
+This will display the available commands, required configuration options, and default settings.
 
 ## Pipeline Workflow 
 
