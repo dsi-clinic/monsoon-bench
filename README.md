@@ -56,33 +56,6 @@ pip install -i https://test.pypi.org/simple/ \
 monsoonbench --help
 ```
 
-## Minimal Example (Python)
-
-```python
-from monsoonbench.data import load
-from monsoonbench.metrics import DeterministicOnsetMetrics
-
-# Load IMD rainfall
-imd = load(
-    "imd_rain",
-    root="/path/to/IMD/2p0",
-    years=range(2015, 2020),
-)
-
-# Run deterministic onset evaluation
-metrics = DeterministicOnsetMetrics()
-results = metrics.compute_metrics_multiple_years(
-    rainfall=imd,
-    forecast=imd,           # placeholder example
-    years=range(2015, 2020),
-    tolerance_days=3,
-)
-
-results.to_netcdf("results.nc")
-```
-
-This illustrates the core workflow: load → evaluate → save.
-
 ## Repository Structure
 
 ```
