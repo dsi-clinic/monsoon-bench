@@ -56,6 +56,35 @@ pip install -i https://test.pypi.org/simple/ \
 monsoonbench --help
 ```
 
+## Python API Example
+
+```python
+from monsoonbench.metrics import DeterministicOnsetMetrics
+from monsoonbench.visualization import create_model_comparison_table
+
+# Initialize metrics calculator
+metrics = DeterministicOnsetMetrics()
+
+# Compute metrics for multiple years
+df, onset_data = metrics.compute_metrics_multiple_years(
+    years=[2019, 2020, 2021, 2022],
+    model_forecast_dir="data/model_forecast_data/fuxi/...",
+    imd_folder="data/imd_rainfall_data/4p0",
+    thres_file="data/imd_onset_threshold/mwset4x4.nc4",
+    tolerance_days=3,
+    verification_window=1,
+    forecast_days=15,
+)
+
+# Create spatial metrics
+spatial = metrics.create_spatial_far_mr_mae(df, onset_data)
+
+# Generate comparison table
+comparison = create_model_comparison_table({"FuXi": spatial})
+print(comparison)
+```
+
+
 ## Repository Structure
 
 ```
