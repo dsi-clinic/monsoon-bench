@@ -76,16 +76,16 @@ class TestMetricsClasses:
         ]
 
         for method in required_methods:
-            assert hasattr(
-                ClimatologyOnsetMetrics, method
-            ), f"ClimatologyOnsetMetrics missing method: {method}"
+            assert hasattr(ClimatologyOnsetMetrics, method), (
+                f"ClimatologyOnsetMetrics missing method: {method}"
+            )
 
         # Verify it inherits from base class (which has create_spatial_far_mr_mae, etc.)
         from monsoonbench.metrics.base import OnsetMetricsBase
 
-        assert issubclass(
-            ClimatologyOnsetMetrics, OnsetMetricsBase
-        ), "ClimatologyOnsetMetrics should inherit from OnsetMetricsBase"
+        assert issubclass(ClimatologyOnsetMetrics, OnsetMetricsBase), (
+            "ClimatologyOnsetMetrics should inherit from OnsetMetricsBase"
+        )
 
     def test_deterministic_has_required_methods(self: Self):
         """Test DeterministicOnsetMetrics has all required methods."""
@@ -99,9 +99,9 @@ class TestMetricsClasses:
         ]
 
         for method in required_methods:
-            assert hasattr(
-                DeterministicOnsetMetrics, method
-            ), f"DeterministicOnsetMetrics missing method: {method}"
+            assert hasattr(DeterministicOnsetMetrics, method), (
+                f"DeterministicOnsetMetrics missing method: {method}"
+            )
 
     def test_probabilistic_has_required_methods(self: Self):
         """Test ProbabilisticOnsetMetrics has all required methods."""
@@ -115,9 +115,9 @@ class TestMetricsClasses:
         ]
 
         for method in required_methods:
-            assert hasattr(
-                ProbabilisticOnsetMetrics, method
-            ), f"ProbabilisticOnsetMetrics missing method: {method}"
+            assert hasattr(ProbabilisticOnsetMetrics, method), (
+                f"ProbabilisticOnsetMetrics missing method: {method}"
+            )
 
     def test_base_class_has_required_methods(self: Self):
         """Test OnsetMetricsBase has required methods."""
@@ -130,9 +130,9 @@ class TestMetricsClasses:
         ]
 
         for method in required_methods:
-            assert hasattr(
-                OnsetMetricsBase, method
-            ), f"OnsetMetricsBase missing method: {method}"
+            assert hasattr(OnsetMetricsBase, method), (
+                f"OnsetMetricsBase missing method: {method}"
+            )
 
 
 class TestVisualization:

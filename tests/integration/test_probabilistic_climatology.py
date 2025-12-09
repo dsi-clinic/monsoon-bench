@@ -81,6 +81,6 @@ def test_probabilistic_workflow(mock_probabilistic_data):
         if result.empty:
             assert True, "Result is empty as no valid initializations were processed."
         else:
-            assert isinstance(
-                result, xr.DataArray
-            ), "Result should be an xarray.DataArray."
+            assert isinstance(result, xr.DataArray), (
+                "Result should be an xarray.DataArray."
+            )

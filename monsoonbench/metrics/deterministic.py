@@ -323,9 +323,9 @@ class DeterministicOnsetMetrics(OnsetMetricsBase):
         onset_da_dict = {}
 
         for year in years:
-            print(f"\n{'='*50}")
+            print(f"\n{'=' * 50}")
             print(f"Processing year {year}")
-            print(f"{'='*50}")
+            print(f"{'=' * 50}")
 
             year_mask = init_times_all.year == year
             year_init_times = init_times_all[year_mask]

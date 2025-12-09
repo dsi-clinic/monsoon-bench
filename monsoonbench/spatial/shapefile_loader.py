@@ -1,8 +1,7 @@
 import os
-import geopandas as gpd
-import geodatasets
 import zipfile
-import matplotlib.pyplot as plt
+
+import geopandas as gpd
 
 DATA_DIR = os.path.join(os.getcwd(), "data")
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -25,7 +24,7 @@ world = gpd.read_file(
 india_country = world[world["ADMIN"] == "India"]
 print(f"Loaded India outline with {len(india_country)} feature(s)")
 
-# Visualize 
+# Visualize
 india_country.plot(edgecolor="black", facecolor="lightblue")
 
 # Load state-level boundaries
@@ -48,7 +47,7 @@ with zipfile.ZipFile(country_zip, "w") as zf:
     for ext in [".shp", ".shx", ".dbf", ".prj"]:
         zf.write(
             os.path.join(country_dir, f"india_country{ext}"),
-            arcname=f"india_country{ext}"
+            arcname=f"india_country{ext}",
         )
 
 print(f"Saved zipped shapefile to: {country_zip}")
@@ -57,7 +56,9 @@ print(f"Saved zipped shapefile to: {country_zip}")
 state_zip = os.path.join(DATA_DIR, "india_states_shapefile.zip")
 with zipfile.ZipFile(state_zip, "w") as zf:
     for ext in [".shp", ".shx", ".dbf", ".prj"]:
-        zf.write(os.path.join(state_dir, f"india_states{ext}"), arcname=f"india_states{ext}")
+        zf.write(
+            os.path.join(state_dir, f"india_states{ext}"), arcname=f"india_states{ext}"
+        )
 
 print(f"Saved zipped shapefile to: {state_zip}")
 
