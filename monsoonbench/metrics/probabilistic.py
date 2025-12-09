@@ -1,5 +1,11 @@
-import os
+"""Probabilistic model onset metrics computation.
+
+This module provides the ProbabilisticOnsetMetrics class for computing
+onset metrics from probabilistic ensemble model forecasts.
+"""
+
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -13,7 +19,8 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
 
     @staticmethod
     def get_forecast_probabilistic_twice_weekly(yr, model_forecast_dir):
-        """Loads model precip data for twice-weekly initializations from May to July.
+        """Load model precip data for twice-weekly initializations from May to July.
+
         Filters for Mondays and Thursdays in the specified year.
         The forecast file is expected to be named as '{year}.nc' in the model_forecast_dir with
         variable "tp" being daily accumulated rainfall with dimensions (init_time, lat, lon, step, member).
@@ -25,9 +32,9 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
         p_model: ndarray, precipitation data
         """
         fname = f"{yr}.nc"
-        file_path = os.path.join(model_forecast_dir, fname)
+        file_path = Path(model_forecast_dir) / fname
 
-        if not os.path.exists(file_path):
+        if not file_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
 
         # Filter for twice weekly data from daily for the specified year
@@ -85,7 +92,8 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
         mok_month=6,
         mok_day=2,
     ):
-        """Compute onset dates for each ensemble member, initialization time, and grid point.
+        """Compute onset dates for each ensemble member, init time, and grid point.
+
         Only processes forecasts initialized before the observed onset date.
         For each initialization, requires at least 50% of members to have onset.
         If threshold met, uses ceiling of mean onset day as the ensemble onset.
@@ -133,7 +141,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
         for t_idx, init_time in enumerate(init_times):
             if t_idx % 5 == 0:  # Print progress every 5 init times
                 print(
-                    f"Processing init time {t_idx+1}/{len(init_times)}: {pd.to_datetime(init_time).strftime('%Y-%m-%d')}"
+                    f"Processing init time {t_idx + 1}/{len(init_times)}: {pd.to_datetime(init_time).strftime('%Y-%m-%d')}"
                 )
 
             # Get init date for MOK filtering and onset comparison
@@ -148,7 +156,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
                     # Get observed onset date for this grid point
                     try:
                         obs_onset = onset_da.isel(lat=i, lon=j).values
-                    except:
+                    except (IndexError, KeyError):
                         skipped_no_obs += 1
                         continue
 
@@ -173,7 +181,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
                     # Collect onset days for all members at this init/location
                     member_onset_days = []
 
-                    for m_idx, member in enumerate(members):
+                    for m_idx, _member in enumerate(members):
                         try:
                             # Extract forecast time series for this member
                             forecast_series = (
@@ -278,7 +286,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
         print(f"Valid initializations processed: {valid_inits}")
         print(f"Ensemble onsets found (≥50% members): {ensemble_onsets_found}")
         print(
-            f"Ensemble onset rate: {ensemble_onsets_found/valid_inits:.3f}"
+            f"Ensemble onset rate: {ensemble_onsets_found / valid_inits:.3f}"
             if valid_inits > 0
             else "Ensemble onset rate: 0.000"
         )
@@ -313,9 +321,9 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
         thres_da = thresh_ds["MWmean"]
 
         for year in years:
-            print(f"\n{'='*50}")
+            print(f"\n{'=' * 50}")
             print(f"Processing year {year}")
-            print(f"{'='*50}")
+            print(f"{'=' * 50}")
 
             p_model = ProbabilisticOnsetMetrics.get_forecast_probabilistic_twice_weekly(
                 year, model_forecast_dir
@@ -336,6 +344,109 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
                 mok_day=mok_day,
             )
 
+            metrics_df, summary_stats = (
+                OnsetMetricsBase.compute_onset_metrics_with_windows(
+                    onset_df,
+                    tolerance_days=tolerance_days,
+                    verification_window=verification_window,
+                    forecast_days=forecast_days,
+                )
+            )
+
+            metrics_df_dict[year] = metrics_df
+            onset_da_dict[year] = onset_da
+
+            print(f"Year {year} completed. Grid points processed: {len(metrics_df)}")
+
+        return metrics_df_dict, onset_da_dict
+
+    @staticmethod
+    def compute_metrics_multiple_years_from_loaders(
+        tp_forecast: xr.DataArray,  # (day, time, lat, lon, member)
+        tp_imd: xr.DataArray,  # (time, lat, lon)
+        thres_da: xr.DataArray,  # (lat, lon)
+        years=None,
+        tolerance_days: int = 3,
+        verification_window: int = 1,
+        forecast_days: int = 15,
+        max_forecast_day: int = 15,
+        mok: bool = True,
+        onset_window: int = 5,
+        mok_month: int = 6,
+        mok_day: int = 2,
+    ):
+        """Loader-based version of "compute_onset_metrics_for_multiple_years" using
+
+        three *loaded* DataArrays:
+
+            - tp_forecast: Probabilistic model precip, dims ('day', 'time', 'lat', 'lon', 'member').
+            - tp_imd: Observed precip, dims ('time', 'lat', 'lon').
+            - thres_da: Threshold field, dims ('lat', 'lon').
+
+        Years are inferred from tp_forecast['time'] if not provided.
+        """
+        if "number" in tp_forecast.dims:
+            tp_forecast = tp_forecast.rename({"number": "member"})
+        elif "sample" in tp_forecast.dims:
+            tp_forecast = tp_forecast.rename({"sample": "member"})
+
+        metrics_df_dict = {}
+        onset_da_dict = {}
+
+        # Infer which years to process from forecast init_time ---
+        init_times_all = pd.to_datetime(tp_forecast["time"].values)
+        if years is None:
+            years = sorted(np.unique(init_times_all.year))
+        else:
+            years = sorted(int(y) for y in years)
+
+        # Loop over years and reuse existing logic
+        for year in years:
+            print("\n" + "=" * 50)
+            print(f"Processing year {year}")
+            print("=" * 50)
+
+            # Slice forecasts for this year based on init_time
+            year_mask = init_times_all.year == year
+            year_init_times = init_times_all[year_mask]
+
+            if len(year_init_times) == 0:
+                print(f"No init times for year {year} in forecast data, skipping.")
+                continue
+
+            tp_fc_year = tp_forecast.sel(time=year_init_times)
+
+            p_model = tp_fc_year.rename({"time": "init_time", "day": "step"}).transpose(
+                "init_time", "step", "lat", "lon", "member"
+            )
+
+            # Drop step=0 if present (lead 0), same as in get_forecast_probabilistic_twice_weekly
+            if int(p_model.step[0]) == 0:
+                p_model = p_model.sel(step=slice(1, None))
+
+            # Slice IMD rainfall for this year and load into memory
+            tp_imd_year = tp_imd.sel(
+                time=slice(f"{year}-01-01", f"{year}-12-31")
+            ).load()
+
+            # Detect_observed_onset expects rainfall with dims (time, lat, lon)
+            onset_da = OnsetMetricsBase.detect_observed_onset(
+                tp_imd_year, thres_da, year, mok=mok
+            )
+
+            # Existing probabilistic onset logic (ensemble -> ensemble_onset_day per init/lat/lon)
+            onset_df = ProbabilisticOnsetMetrics.compute_mean_onset_for_all_members(
+                p_model,
+                thres_da,
+                onset_da,
+                max_forecast_day=max_forecast_day,
+                mok=mok,
+                onset_window=onset_window,
+                mok_month=mok_month,
+                mok_day=mok_day,
+            )
+
+            # Existing contingency-table metrics (MAE/FAR/MR)
             metrics_df, summary_stats = (
                 OnsetMetricsBase.compute_onset_metrics_with_windows(
                     onset_df,
