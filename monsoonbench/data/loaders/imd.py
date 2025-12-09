@@ -5,9 +5,9 @@ This module provides a loader for Indian Meteorological Department rainfall data
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import xarray as xr
@@ -31,27 +31,36 @@ class IMDRainLoader(BaseLoader):
     ensure_vars: list[str] = field(default_factory=lambda: ["tp"])
     to_dataarray: bool = True
 
-    def _resolve_paths(self: Self, folder: str, years: Iterable[int]) -> list[str]:
-        """Resolve file paths for the given years in the folder."""
-        paths, missing = [], []
-        folder_path = Path(folder)
-        for y in years:
+    def _resolve_paths(self, folder: str, years: int | Iterable[int]) -> list[str]:
+        # Normalize years
+        if isinstance(years, int):
+            year_list = [years]
+        else:
+            # works for range, list, tuple, generator, etc.
+            year_list = list(years)
+
+        paths: list[str] = []
+        missing: list[int] = []
+
+        for y in year_list:
             found = None
             for pat in self.file_patterns:
-                p = folder_path / pat.format(year=y)
-                if p.exists():
-                    found = str(p)
+                p = os.path.join(folder, pat.format(year=y))
+                if os.path.exists(p):
+                    found = p
                     break
             if found:
                 paths.append(found)
             else:
                 missing.append(y)
+
         if not paths:
             raise FileNotFoundError(
-                f"No IMD files found in {folder} for years {list(years)}"
+                f"No IMD files found in {folder} for years {year_list}"
             )
         if missing:
             print(f"[imd_rain] Missing years (skipped): {missing}")
+
         return paths
 
     def load(self: Self) -> xr.DataArray:
@@ -75,12 +84,5 @@ class IMDRainLoader(BaseLoader):
             decode_times=self.decode_times,
             parallel=True,
         )
-
-        # Ensure main var is 'tp'
-        if "tp" not in ds.data_vars:
-            for cand in ("RAINFALL", "rain", "precip", "pr"):
-                if cand in ds.data_vars:
-                    ds = ds.rename({cand: "tp"})
-                    break
 
         return self._postprocess(ds)

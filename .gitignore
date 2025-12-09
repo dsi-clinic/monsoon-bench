@@ -150,4 +150,4 @@ reference_scripts/*/testing.ipynb
 
 # Development/testing outputs
 output/
-results/
+results/monsoonbench/data/load_setup_README.md
