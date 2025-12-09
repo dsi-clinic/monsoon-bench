@@ -1,19 +1,22 @@
-import os
+"""Helpers for downloading and caching India shapefiles for MonsoonBench."""
+
 import zipfile
+from pathlib import Path
 
 import geopandas as gpd
 
-DATA_DIR = os.path.join(os.getcwd(), "data")
-os.makedirs(DATA_DIR, exist_ok=True)
+# Base data directory
+DATA_DIR = Path.cwd() / "data"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-state_dir = os.path.join(DATA_DIR, "india_states_shapefile")
-os.makedirs(state_dir, exist_ok=True)
+state_dir = DATA_DIR / "india_states_shapefile"
+state_dir.mkdir(parents=True, exist_ok=True)
 
-country_dir = os.path.join(DATA_DIR, "india_country_shapefile")
-os.makedirs(country_dir, exist_ok=True)
+country_dir = DATA_DIR / "india_country_shapefile"
+country_dir.mkdir(parents=True, exist_ok=True)
 
-## Country Boundaries comes with GeoPandas
-## Country Outline for India
+# Country boundaries come with GeoPandas
+# Country outline for India
 
 # Load global country boundaries from Natural Earth
 world = gpd.read_file(
@@ -37,32 +40,34 @@ print(f"Loaded {len(india_states)} state polygons for India")
 
 india_states.plot(edgecolor="gray", facecolor="lightgreen")
 
-## Saving to shapefile components
-india_country.to_file(os.path.join(country_dir, "india_country.shp"))
-india_states.to_file(os.path.join(state_dir, "india_states.shp"))
+# Saving to shapefile components
+india_country.to_file(country_dir / "india_country.shp")
+india_states.to_file(state_dir / "india_states.shp")
 
 # Zip them together for country boundary
-country_zip = os.path.join(DATA_DIR, "india_country_shapefile.zip")
+country_zip = DATA_DIR / "india_country_shapefile.zip"
 with zipfile.ZipFile(country_zip, "w") as zf:
     for ext in [".shp", ".shx", ".dbf", ".prj"]:
         zf.write(
-            os.path.join(country_dir, f"india_country{ext}"),
+            country_dir / f"india_country{ext}",
             arcname=f"india_country{ext}",
         )
 
 print(f"Saved zipped shapefile to: {country_zip}")
 
 # Zip them together for state boundary
-state_zip = os.path.join(DATA_DIR, "india_states_shapefile.zip")
+state_zip = DATA_DIR / "india_states_shapefile.zip"
 with zipfile.ZipFile(state_zip, "w") as zf:
     for ext in [".shp", ".shx", ".dbf", ".prj"]:
         zf.write(
-            os.path.join(state_dir, f"india_states{ext}"), arcname=f"india_states{ext}"
+            state_dir / f"india_states{ext}",
+            arcname=f"india_states{ext}",
         )
 
 print(f"Saved zipped shapefile to: {state_zip}")
 
-""" 
+
+"""
 def load_india_shapefile(path=state_zip):
     ### Load India shapefile (from local zip).
     gdf = gpd.read_file(f"zip://{path}")
@@ -72,5 +77,4 @@ def load_india_shapefile(path=state_zip):
 # Test
 india = load_india_shapefile()
 india.plot(edgecolor="black", facecolor="lightgreen")
-
 """
