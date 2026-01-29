@@ -8,6 +8,7 @@ from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
+from matplotlib.path import Path as MplPath
 
 # Constants for resolution matching
 RESOLUTION_TOLERANCE = 0.1  # Tolerance for resolution matching in degrees
@@ -116,3 +117,45 @@ def detect_resolution(lats: np.ndarray) -> float:
 
     lat_diff = abs(lats[1] - lats[0])
     return float(lat_diff)
+
+# Function to find grid points inside a polygon (For core-monsoon zone analysis)
+def points_inside_polygon(polygon_lon, polygon_lat, grid_lons, grid_lats):
+    """
+    Find grid points that are inside a polygon.
+    
+    Parameters:
+    polygon_lon: array of polygon longitude vertices
+    polygon_lat: array of polygon latitude vertices  
+    grid_lons: array of grid longitude points
+    grid_lats: array of grid latitude points
+    
+    Returns:
+    inside_mask: boolean array indicating which points are inside
+    inside_lons: longitude coordinates of points inside polygon
+    inside_lats: latitude coordinates of points inside polygon
+    """
+    
+    # Create polygon path
+    polygon_vertices = np.column_stack((polygon_lon, polygon_lat))
+    polygon_path = MplPath(polygon_vertices)
+    
+    # Create meshgrid if needed
+    if grid_lons.ndim == 1 and grid_lats.ndim == 1:
+        lon_grid, lat_grid = np.meshgrid(grid_lons, grid_lats)
+    else:
+        lon_grid, lat_grid = grid_lons, grid_lats
+    
+    # Flatten the grids to test each point
+    points = np.column_stack((lon_grid.ravel(), lat_grid.ravel()))
+    
+    # Test which points are inside the polygon
+    inside_mask = polygon_path.contains_points(points)
+    inside_mask = inside_mask.reshape(lon_grid.shape)
+    
+    # Get coordinates of points inside polygon
+    inside_lons = lon_grid[inside_mask]
+    inside_lats = lat_grid[inside_mask]
+    
+    return inside_mask, inside_lons, inside_lats
+
+
