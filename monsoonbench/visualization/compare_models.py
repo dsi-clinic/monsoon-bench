@@ -347,7 +347,6 @@ def get_target_bins(brier_forecast, brier_climatology):
     
     return sorted(target_bins, key=extract_day_range)
 
-
 def create_heatmap(skill_results, auc_forecast, auc_climatology, 
                   brier_forecast, brier_climatology, model_name, max_forecast_day, save_dir=None):
     """
@@ -393,7 +392,7 @@ def create_heatmap(skill_results, auc_forecast, auc_climatology,
                 vmin=-40, vmax=40,
                 center=0,
                 xticklabels=bin_labels_short,
-                cbar=False,
+                cbar_kws={"orientation": "horizontal"},
                 ax=ax1,
                 annot_kws={'size': 12, 'weight': 'bold'})
     
@@ -409,7 +408,7 @@ def create_heatmap(skill_results, auc_forecast, auc_climatology,
                 cmap='Blues',
                 vmin=0.7, vmax=1.0,
                 xticklabels=bin_labels_short,
-                cbar=False,
+                cbar_kws={"orientation": "horizontal"},
                 ax=ax2)
     
     # Add custom annotations
