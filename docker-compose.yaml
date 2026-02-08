@@ -1,15 +1,72 @@
+# docker-compose.yaml
+#
+# MonsoonBench development/runtime environment.
+#
+# Design goals:
+# - Keep the Docker image small: image contains ONLY code + dependencies.
+# - Never bake raw data into the image: raw data is ALWAYS mounted at runtime.
+# - Preserve the repo's existing path assumptions (monsoonbench/data/...) without refactors.
+#
+# Usage:
+#   # Option A (data lives inside repo under monsoonbench/data/*):
+#   docker compose run --rm monsoonbench bash
+#
+#   # Option B (data lives outside repo):
+#   #   export HOST_RAW_DATA=/absolute/path/to/monsoonbench_raw
+#   #   (or put it in a .env file)
+#   docker compose run --rm monsoonbench bash
+#
+# Jupyter:
+#   docker compose run --rm -p 8888:8888 monsoonbench \
+#     bash -lc "uv run jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --NotebookApp.token='' --allow-root"
+
 services:
-  2025-autumn-aice:
+  monsoonbench:
     build:
       context: .
       dockerfile: Dockerfile
-    volumes:
-      - .:/project/src
+
+    # Use a consistent working directory that matches Dockerfile.
+    working_dir: /project
+
+    # Runtime environment variables used by notebooks/scripts.
     environment:
-      REPO_ROOT: /project/src
-      DATA_DIR: /project/data
-      PYTHONPATH: /project/src
-    shm_size: '16gb'
-    # At least one of stdin_open or tty is required to make devcontainer work
+      # "Repo root" inside container.
+      REPO_ROOT: /project
+      # Where the code expects "data/" to live (keeps existing repo assumptions).
+      DATA_DIR: /project/monsoonbench/data
+      # Ensure imports resolve against the mounted repo.
+      PYTHONPATH: /project
+
+    # Volumes:
+    # 1) Mount repo code so edits are live inside the container.
+    # 2) Mount raw-data subfolders either from repo-local path (default) OR an external host path.
+    volumes:
+      - .:/project
+
+      # Raw data mounts (choose source via HOST_RAW_DATA):
+      # - If HOST_RAW_DATA is NOT set, default to ./monsoonbench/data (repo-local).
+      # - If HOST_RAW_DATA IS set, use that external directory.
+      #
+      # Required layout under HOST_RAW_DATA:
+      #   HOST_RAW_DATA/
+      #     imd_rainfall_data/
+      #     model_forecast_data/
+      #     imd_onset_threshold/
+      #     data_shapefile/
+      #     ind_map_shpfile/
+      - ${HOST_RAW_DATA:-./monsoonbench/data}/imd_rainfall_data:/project/monsoonbench/data/imd_rainfall_data
+      - ${HOST_RAW_DATA:-./monsoonbench/data}/model_forecast_data:/project/monsoonbench/data/model_forecast_data
+      - ${HOST_RAW_DATA:-./monsoonbench/data}/imd_onset_threshold:/project/monsoonbench/data/imd_onset_threshold
+      - ${HOST_RAW_DATA:-./monsoonbench/data}/data_shapefile:/project/monsoonbench/data/data_shapefile
+      - ${HOST_RAW_DATA:-./monsoonbench/data}/ind_map_shpfile:/project/monsoonbench/data/ind_map_shpfile
+
+    # Large shared memory helps with xarray/netCDF workloads and avoids /dev/shm issues.
+    shm_size: "16gb"
+
+    # Required for some devcontainer/interactive workflows.
     stdin_open: true
     tty: true
+
+    # Default command keeps the container usable for interactive sessions.
+    command: ["/bin/bash"]
