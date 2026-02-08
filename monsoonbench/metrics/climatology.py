@@ -4,19 +4,21 @@ This module provides the ClimatologyOnsetMetrics class for computing
 climatological baseline metrics for monsoon onset prediction.
 """
 
+import glob
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
-from scipy import stats
-import os
-import glob
 
 import numpy as np
 import pandas as pd
 import xarray as xr
+from scipy import stats
+
+from monsoonbench.spatial.regions import points_inside_polygon
 
 from .base import OnsetMetricsBase
-from monsoonbench.spatial.regions import points_inside_polygon
 from .probabilistic import ProbabilisticOnsetMetrics
+
 
 class ClimatologyOnsetMetrics(OnsetMetricsBase):
     """Class to compute climatology onset metrics."""
@@ -115,13 +117,14 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         print(f"Climatological onset computed from {len(all_onset_days)} valid years")
 
         return climatological_onset_doy
-    
+
     ## This function computes onset dates for all available years in IMD folder and creates a climatological onset dataset
     @staticmethod
-    def compute_climatological_onset_dataset(imd_folder, thresh_slice, years=None, mok=True):
-        """
-        Compute onset dates for all available years in IMD folder and create a climatological dataset.
-        
+    def compute_climatological_onset_dataset(
+        imd_folder, thresh_slice, years=None, mok=True
+    ):
+        """Compute onset dates for all available years in IMD folder and create a climatological dataset.
+
         Parameters:
         -----------
         imd_folder : str
@@ -132,114 +135,122 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
             Specific years to process. If None, will auto-detect available years
         mok : bool, default=True
             Whether to use MOK date filter (June 2nd)
-        
+
         Returns:
         --------
         xarray.DataArray
             3D array with dimensions [year, lat, lon] containing onset dates
         """
-        
         # Auto-detect available years if not specified
         if years is None:
             years = []
             # Look for files matching common IMD naming patterns
-            file_patterns = ['data_*.nc', '*.nc']
-            
+            file_patterns = ["data_*.nc", "*.nc"]
+
             for pattern in file_patterns:
                 files = glob.glob(os.path.join(imd_folder, pattern))
                 for file in files:
                     filename = os.path.basename(file)
                     # Extract year from filename
-                    if filename.startswith('data_'):
-                        year_str = filename.replace('data_', '').replace('.nc', '')
+                    if filename.startswith("data_"):
+                        year_str = filename.replace("data_", "").replace(".nc", "")
                     else:
-                        year_str = filename.replace('.nc', '')
+                        year_str = filename.replace(".nc", "")
                     year = int(year_str)
                     years.append(year)
-                
-            
+
             years = sorted(list(set(years)))  # Remove duplicates and sort
-        
+
         if not years:
             raise ValueError(f"No valid years found in {imd_folder}")
-        
+
         print(f"Processing {len(years)} years: {years}")
-        
+
         # Initialize lists to store results
         onset_arrays = []
         valid_years = []
-        
+
         # Process each year
         for year in years:
             print(f"\nProcessing year {year}...")
-            
+
             try:
                 # Load rainfall data for this year
                 rainfall_ds = OnsetMetricsBase.load_imd_rainfall(year, imd_folder)
-                
+
                 # Select the same spatial domain as thresh_slice
                 rainfall_slice = rainfall_ds
                 # Detect onset for this year
-                onset_da = OnsetMetricsBase.detect_observed_onset(rainfall_slice, thresh_slice, year, mok=mok)
-                
+                onset_da = OnsetMetricsBase.detect_observed_onset(
+                    rainfall_slice, thresh_slice, year, mok=mok
+                )
+
                 # Count valid onsets
                 valid_onsets = (~pd.isna(onset_da.values)).sum()
                 total_points = onset_da.size
-                
-                print(f"Year {year}: Found onset in {valid_onsets}/{total_points} grid points ({valid_onsets/total_points:.1%})")
-                
+
+                print(
+                    f"Year {year}: Found onset in {valid_onsets}/{total_points} grid points ({valid_onsets/total_points:.1%})"
+                )
+
                 # Store the onset array
                 onset_arrays.append(onset_da.values)
                 valid_years.append(year)
-                
+
             except Exception as e:
                 print(f"Error processing year {year}: {e}")
                 continue
-        
+
         if not onset_arrays:
             raise ValueError("No years were successfully processed")
-        
+
         # Stack all onset arrays into a 3D array
         onset_3d = np.stack(onset_arrays, axis=0)
-        
+
         # Create the final DataArray
         climatological_onset_da = xr.DataArray(
             onset_3d,
             coords=[
-                ('year', valid_years),
-                ('lat', thresh_slice.lat.values),
-                ('lon', thresh_slice.lon.values)
+                ("year", valid_years),
+                ("lat", thresh_slice.lat.values),
+                ("lon", thresh_slice.lon.values),
             ],
-            name='climatological_onset_dates',
+            name="climatological_onset_dates",
             attrs={
-                'description': 'Onset dates for climatological ensemble',
-                'method': 'MOK (June 2nd filter)' if mok else 'no date filter',
-                'years_processed': valid_years,
-                'total_years': len(valid_years)
-            }
+                "description": "Onset dates for climatological ensemble",
+                "method": "MOK (June 2nd filter)" if mok else "no date filter",
+                "years_processed": valid_years,
+                "total_years": len(valid_years),
+            },
         )
-        
+
         # Print summary statistics
         total_possible = len(valid_years) * thresh_slice.size
         total_valid = (~pd.isna(climatological_onset_da.values)).sum()
-        
+
         print(f"\n{'='*60}")
-        print(f"CLIMATOLOGICAL ONSET DATASET SUMMARY")
+        print("CLIMATOLOGICAL ONSET DATASET SUMMARY")
         print(f"{'='*60}")
-        print(f"Years processed: {len(valid_years)} ({min(valid_years)}-{max(valid_years)})")
-        print(f"Spatial domain: {len(thresh_slice.lat)} lats x {len(thresh_slice.lon)} lons")
-        print(f"Total valid onsets: {total_valid:,}/{total_possible:,} ({total_valid/total_possible:.1%})")
+        print(
+            f"Years processed: {len(valid_years)} ({min(valid_years)}-{max(valid_years)})"
+        )
+        print(
+            f"Spatial domain: {len(thresh_slice.lat)} lats x {len(thresh_slice.lon)} lons"
+        )
+        print(
+            f"Total valid onsets: {total_valid:,}/{total_possible:,} ({total_valid/total_possible:.1%})"
+        )
         print(f"Method: {'MOK (June 2nd filter)' if mok else 'No date filter'}")
-        
+
         # Show onset statistics by year
-        print(f"\nOnset statistics by year:")
+        print("\nOnset statistics by year:")
         for i, year in enumerate(valid_years):
             year_onsets = (~pd.isna(climatological_onset_da.isel(year=i).values)).sum()
-            print(f"  {year}: {year_onsets}/{thresh_slice.size} ({year_onsets/thresh_slice.size:.1%})")
-        
+            print(
+                f"  {year}: {year_onsets}/{thresh_slice.size} ({year_onsets/thresh_slice.size:.1%})"
+            )
+
         return climatological_onset_da
-
-
 
     @staticmethod
     def get_initialization_dates(year):
@@ -694,14 +705,15 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
             )
 
         return metrics_df_dict, climatological_onset_doy
-    
+
     ## This function creates forecast-observation pairs using climatological ensemble where each year is a member
     @staticmethod
-    def create_climatological_forecast_obs_pairs(clim_onset, target_year, init_dates, day_bins, max_forecast_day=15, mok=True):
-        """
-        Create forecast-observation pairs using climatological ensemble where each year is a member.
+    def create_climatological_forecast_obs_pairs(
+        clim_onset, target_year, init_dates, day_bins, max_forecast_day=15, mok=True
+    ):
+        """Create forecast-observation pairs using climatological ensemble where each year is a member.
         Uses day-of-year instead of calendar dates for onset comparison.
-        
+
         Parameters:
         -----------
         clim_onset : xarray.DataArray
@@ -717,240 +729,296 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
             Maximum forecast day
         mok : bool, default=True
             Whether to use MOK date filter (June 2nd)
-        
+
         Returns:
         --------
         DataFrame with forecast-observation pairs
         """
-        
         results_list = []
-        
+
         # Get the observed onset for the target year
         if target_year not in clim_onset.year.values:
-            raise ValueError(f"Target year {target_year} not found in climatological dataset")
-        
+            raise ValueError(
+                f"Target year {target_year} not found in climatological dataset"
+            )
+
         obs_onset_da = clim_onset.sel(year=target_year)
-        
+
         # Use ALL years as ensemble members (including target year)
         ensemble_years = list(clim_onset.year.values)
         ensemble_onset_da = clim_onset.sel(year=ensemble_years)
-        
+
         # Create extended bins including "before initialization" and "after max_forecast_day" bins
-        extended_bins = [(-float('inf'), 0)] + day_bins + [(max_forecast_day + 1, float('inf'))]
+        extended_bins = (
+            [(-float("inf"), 0)] + day_bins + [(max_forecast_day + 1, float("inf"))]
+        )
 
         print(f"Creating climatological forecasts for target year {target_year}")
-        print(f"Using {len(ensemble_years)} years as ensemble members: {ensemble_years}")
+        print(
+            f"Using {len(ensemble_years)} years as ensemble members: {ensemble_years}"
+        )
         print(f"Processing {len(init_dates)} initialization dates")
         print(f"Day bins: {day_bins}")
-        print(f"Extended bins include: 'Before initialization' and 'After day {max_forecast_day}'")
-        print(f"Using day-of-year method for onset comparison")
-        
+        print(
+            f"Extended bins include: 'Before initialization' and 'After day {max_forecast_day}'"
+        )
+        print("Using day-of-year method for onset comparison")
+
         # Get the actual lat/lon coordinates from the data
-        lats = obs_onset_da.lat.values  
+        lats = obs_onset_da.lat.values
         lons = obs_onset_da.lon.values
-        
+
         # Create unique lat-lon pairs (no repetition)
         unique_pairs = list(zip(lons, lats))
-        
+
         print(f"Processing {len(unique_pairs)} unique lat-lon pairs")
-        
+
         # Process each initialization date and location
         for init_date in init_dates:
             init_date = pd.to_datetime(init_date)
             init_doy = init_date.dayofyear  # Day of year for initialization
-            
+
             # Loop over unique lat-lon pairs
             for pair_idx, (lon, lat) in enumerate(unique_pairs):
-                
                 # Get observed onset for this location and target year
                 try:
-                    lat_idx = np.where(np.abs(obs_onset_da.lat.values - lat) < 0.01)[0][0]
-                    lon_idx = np.where(np.abs(obs_onset_da.lon.values - lon) < 0.01)[0][0]
+                    lat_idx = np.where(np.abs(obs_onset_da.lat.values - lat) < 0.01)[0][
+                        0
+                    ]
+                    lon_idx = np.where(np.abs(obs_onset_da.lon.values - lon) < 0.01)[0][
+                        0
+                    ]
                     obs_onset = obs_onset_da.isel(lat=lat_idx, lon=lon_idx).values
                 except:
                     continue
-                
+
                 # Skip if no observed onset
                 if pd.isna(obs_onset):
                     continue
-                
+
                 obs_onset_dt = pd.to_datetime(obs_onset)
                 obs_onset_doy = obs_onset_dt.dayofyear  # Day of year for observed onset
-                
+
                 # Only process forecasts that are initialized BEFORE the observed onset (by day of year)
                 if init_doy >= obs_onset_doy:
                     continue
-                
+
                 # Get ensemble member onsets for this location using the same indices
-                ensemble_onsets = ensemble_onset_da.isel(lat=lat_idx, lon=lon_idx).values
-                
+                ensemble_onsets = ensemble_onset_da.isel(
+                    lat=lat_idx, lon=lon_idx
+                ).values
+
                 # Convert ensemble onsets to days from initialization using day-of-year
                 ensemble_forecast_days = []
                 ensemble_years_with_data = []
-                
+
                 for ens_idx, ens_onset in enumerate(ensemble_onsets):
                     ens_year = ensemble_years[ens_idx]
-                    
+
                     if pd.notna(ens_onset):
                         ens_onset_dt = pd.to_datetime(ens_onset)
-                        ens_onset_doy = ens_onset_dt.dayofyear  # Day of year for ensemble onset
-                        
+                        ens_onset_doy = (
+                            ens_onset_dt.dayofyear
+                        )  # Day of year for ensemble onset
+
                         # Calculate days from initialization using day-of-year difference
-                        days_from_init = ens_onset_doy - init_doy                   
+                        days_from_init = ens_onset_doy - init_doy
                         ensemble_forecast_days.append(days_from_init)
                         ensemble_years_with_data.append(ens_year)
                     else:
                         # No onset predicted by this member
                         ensemble_forecast_days.append(None)
                         ensemble_years_with_data.append(ens_year)
-                
+
                 total_members = len(ensemble_years)
-                
+
                 # First pass: calculate total members with onset across all bins
                 total_members_with_onset = 0
                 bin_members_onset = []  # Store for second pass
-                
+
                 for bin_idx, (bin_start, bin_end) in enumerate(extended_bins):
                     members_with_onset_in_bin = 0
-                    
+
                     # Handle the "before initialization" bin
-                    if bin_start == -float('inf'):
+                    if bin_start == -float("inf"):
                         for i, member_onset_day in enumerate(ensemble_forecast_days):
                             if member_onset_day is not None and member_onset_day <= 0:
                                 members_with_onset_in_bin += 1
-                                
+
                     # Handle the "after max_forecast_day" bin
                     elif bin_start > max_forecast_day:
                         for i, member_onset_day in enumerate(ensemble_forecast_days):
-                            if member_onset_day is not None and member_onset_day > max_forecast_day:
+                            if (
+                                member_onset_day is not None
+                                and member_onset_day > max_forecast_day
+                            ):
                                 members_with_onset_in_bin += 1
-                                
+
                     else:
                         # Regular bin within forecast window
                         for i, member_onset_day in enumerate(ensemble_forecast_days):
-                            if member_onset_day is not None and bin_start <= member_onset_day <= bin_end:
+                            if (
+                                member_onset_day is not None
+                                and bin_start <= member_onset_day <= bin_end
+                            ):
                                 members_with_onset_in_bin += 1
-                    
+
                     bin_members_onset.append(members_with_onset_in_bin)
                     total_members_with_onset += members_with_onset_in_bin
-                
+
                 # Skip if no members showed onset
                 if total_members_with_onset == 0:
                     continue
-                
+
                 # Second pass: For each day bin, calculate probabilities using total_members_with_onset
                 for bin_idx, (bin_start, bin_end) in enumerate(extended_bins):
-                    
                     members_with_onset_in_bin = bin_members_onset[bin_idx]
-                    
+
                     # Track which years contribute to this bin
                     contributing_years = []
-                    
+
                     # Handle the "before initialization" bin
-                    if bin_start == -float('inf'):
-                        bin_label = 'Before initialization'
-                        
+                    if bin_start == -float("inf"):
+                        bin_label = "Before initialization"
+
                         # Check if observed onset occurs before initialization (by day of year)
                         observed_onset = int(obs_onset_doy <= init_doy)
-                        
+
                         # Get contributing years
                         for i, member_onset_day in enumerate(ensemble_forecast_days):
                             if member_onset_day is not None and member_onset_day <= 0:
                                 contributing_years.append(ensemble_years_with_data[i])
-                                
+
                     # Handle the "after max_forecast_day" bin
                     elif bin_start > max_forecast_day:
-                        bin_label = f'After day {max_forecast_day}'
-                        
+                        bin_label = f"After day {max_forecast_day}"
+
                         # Check if observed onset occurs after max_forecast_day (by day of year)
                         obs_days_from_init = obs_onset_doy - init_doy
-                        
+
                         observed_onset = int(obs_days_from_init > max_forecast_day)
-                        
+
                         # Get contributing years
                         for i, member_onset_day in enumerate(ensemble_forecast_days):
-                            if member_onset_day is not None and member_onset_day > max_forecast_day:
+                            if (
+                                member_onset_day is not None
+                                and member_onset_day > max_forecast_day
+                            ):
                                 contributing_years.append(ensemble_years_with_data[i])
-                                
+
                     else:
                         # Regular bin within forecast window
-                        bin_label = f'Days {bin_start}-{bin_end}'
-                        
+                        bin_label = f"Days {bin_start}-{bin_end}"
+
                         # Check if observed onset falls within this day bin (by day of year)
                         obs_days_from_init = obs_onset_doy - init_doy
                         observed_onset = int(bin_start <= obs_days_from_init <= bin_end)
-                        
+
                         # Get contributing years
                         for i, member_onset_day in enumerate(ensemble_forecast_days):
-                            if member_onset_day is not None and bin_start <= member_onset_day <= bin_end:
+                            if (
+                                member_onset_day is not None
+                                and bin_start <= member_onset_day <= bin_end
+                            ):
                                 contributing_years.append(ensemble_years_with_data[i])
-                    
+
                     # Calculate probability using only members that showed onset
-                    predicted_prob = members_with_onset_in_bin / total_members_with_onset
-                    
+                    predicted_prob = (
+                        members_with_onset_in_bin / total_members_with_onset
+                    )
+
                     # Convert contributing years to string for storage
-                    contributing_years_str = ','.join(map(str, sorted(contributing_years))) if contributing_years else ''
-                    
+                    contributing_years_str = (
+                        ",".join(map(str, sorted(contributing_years)))
+                        if contributing_years
+                        else ""
+                    )
+
                     # Store result
                     result = {
-                        'init_time': init_date.strftime('%Y-%m-%d'),
-                        'lat': lat,
-                        'lon': lon,
-                        'bin_start': bin_start,
-                        'bin_end': bin_end,
-                        'bin_label': bin_label,
-                        'predicted_prob': predicted_prob,
-                        'observed_onset': observed_onset,
-                        'members_with_onset': members_with_onset_in_bin,
-                        'total_members': total_members,
-                        'total_members_with_onset': total_members_with_onset,  # New field
-                        'contributing_years': contributing_years_str,
-                        'n_contributing_years': len(contributing_years),
-                        'year': target_year,
-                        'obs_onset_date': obs_onset_dt.strftime('%Y-%m-%d'),
-                        'obs_onset_doy': obs_onset_doy,
-                        'init_doy': init_doy,
-                        'obs_days_from_init_doy': obs_days_from_init if 'obs_days_from_init' in locals() else (obs_onset_doy - init_doy),
-                        'bin_index': bin_idx,
-                        'forecast_type': 'climatological_doy'
+                        "init_time": init_date.strftime("%Y-%m-%d"),
+                        "lat": lat,
+                        "lon": lon,
+                        "bin_start": bin_start,
+                        "bin_end": bin_end,
+                        "bin_label": bin_label,
+                        "predicted_prob": predicted_prob,
+                        "observed_onset": observed_onset,
+                        "members_with_onset": members_with_onset_in_bin,
+                        "total_members": total_members,
+                        "total_members_with_onset": total_members_with_onset,  # New field
+                        "contributing_years": contributing_years_str,
+                        "n_contributing_years": len(contributing_years),
+                        "year": target_year,
+                        "obs_onset_date": obs_onset_dt.strftime("%Y-%m-%d"),
+                        "obs_onset_doy": obs_onset_doy,
+                        "init_doy": init_doy,
+                        "obs_days_from_init_doy": obs_days_from_init
+                        if "obs_days_from_init" in locals()
+                        else (obs_onset_doy - init_doy),
+                        "bin_index": bin_idx,
+                        "forecast_type": "climatological_doy",
                     }
                     results_list.append(result)
-        
+
         # Convert to DataFrame
         forecast_obs_df = pd.DataFrame(results_list)
-        
+
         if len(forecast_obs_df) == 0:
             print("Warning: No forecast-observation pairs generated")
             return forecast_obs_df
-        
-        print(f"Generated {len(forecast_obs_df)} climatological forecast-observation pairs")
+
+        print(
+            f"Generated {len(forecast_obs_df)} climatological forecast-observation pairs"
+        )
         print(f"Unique lat-lon pairs processed: {len(unique_pairs)}")
         print(f"Total bins per forecast: {len(extended_bins)}")
-        print(f"Probability range: {forecast_obs_df['predicted_prob'].min():.3f} - {forecast_obs_df['predicted_prob'].max():.3f}")
+        print(
+            f"Probability range: {forecast_obs_df['predicted_prob'].min():.3f} - {forecast_obs_df['predicted_prob'].max():.3f}"
+        )
         print(f"Observed onset rate: {forecast_obs_df['observed_onset'].mean():.3f}")
-        print(f"Non-zero probabilities: {(forecast_obs_df['predicted_prob'] > 0).sum()}")
-        
+        print(
+            f"Non-zero probabilities: {(forecast_obs_df['predicted_prob'] > 0).sum()}"
+        )
+
         # Verify uniqueness
-        unique_locations_in_output = len(forecast_obs_df[['lat', 'lon']].drop_duplicates())
+        unique_locations_in_output = len(
+            forecast_obs_df[["lat", "lon"]].drop_duplicates()
+        )
         print(f"Unique locations in output: {unique_locations_in_output}")
-        
+
         # Show distribution across bins
-        print(f"\nDistribution across bins:")
-        bin_stats = forecast_obs_df.groupby('bin_label').agg({
-            'predicted_prob': ['count', 'mean'],
-            'observed_onset': 'mean',
-            'n_contributing_years': 'mean',
-            'total_members_with_onset': 'mean'
-        }).round(3)
+        print("\nDistribution across bins:")
+        bin_stats = (
+            forecast_obs_df.groupby("bin_label")
+            .agg(
+                {
+                    "predicted_prob": ["count", "mean"],
+                    "observed_onset": "mean",
+                    "n_contributing_years": "mean",
+                    "total_members_with_onset": "mean",
+                }
+            )
+            .round(3)
+        )
         print(bin_stats)
-        
+
         return forecast_obs_df
 
     @staticmethod
-    def multi_year_climatological_forecast_obs_pairs(clim_onset, target_years, day_bins, mem_num, model_forecast_dir, date_filter_year=2024, file_pattern='tp_4p0_{}.nc', max_forecast_day=15, mok=True):
-        """
-        Create climatological forecast-observation pairs for multiple target years.
-        
+    def multi_year_climatological_forecast_obs_pairs(
+        clim_onset,
+        target_years,
+        day_bins,
+        mem_num,
+        model_forecast_dir,
+        date_filter_year=2024,
+        file_pattern="tp_4p0_{}.nc",
+        max_forecast_day=15,
+        mok=True,
+    ):
+        """Create climatological forecast-observation pairs for multiple target years.
+
         Parameters:
         -----------
         clim_onset : xarray.DataArray
@@ -963,7 +1031,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
             Maximum forecast day
         mok : bool, default=True
             Whether to use MOK date filter
-        
+
         Returns:
         --------
         DataFrame with combined forecast-observation pairs from all target years
@@ -973,209 +1041,299 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         orig_lat = clim_onset.lat.values
         orig_lon = clim_onset.lon.values
 
-        lat_diff = abs(orig_lat[1]-orig_lat[0])
+        lat_diff = abs(orig_lat[1] - orig_lat[0])
         if abs(lat_diff - 2.0) < 0.1:  # 2-degree resolution
-            polygon1_lon = np.array([83, 75, 75, 71, 71, 77, 77, 79, 79, 83, 83, 89, 89, 85, 85, 83, 83])
-            polygon1_lat = np.array([17, 17, 21, 21, 29, 29, 27, 27, 25, 25, 23, 23, 21, 21, 19, 19, 17])
+            polygon1_lon = np.array(
+                [83, 75, 75, 71, 71, 77, 77, 79, 79, 83, 83, 89, 89, 85, 85, 83, 83]
+            )
+            polygon1_lat = np.array(
+                [17, 17, 21, 21, 29, 29, 27, 27, 25, 25, 23, 23, 21, 21, 19, 19, 17]
+            )
             print("Using 2-degree CMZ polygon coordinates")
         elif abs(lat_diff - 4.0) < 0.1:  # 4-degree resolution
             polygon1_lon = np.array([86, 74, 74, 70, 70, 82, 82, 86, 86])
             polygon1_lat = np.array([18, 18, 22, 22, 30, 30, 26, 26, 18])
             print("Using 4-degree CMZ polygon coordinates")
         elif abs(lat_diff - 1.0) < 0.1:  # 1-degree resolution
-            polygon1_lon = np.array([74, 85, 85, 86, 86, 87, 87, 88, 88, 88, 85, 85, 82, 82, 79, 79, 78, 78, 69, 69, 74, 74])
-            polygon1_lat = np.array([18, 18, 19, 19, 20, 20, 21, 21, 21, 24, 24, 25, 25, 26, 26, 27, 27, 28, 28, 21, 21, 18])
+            polygon1_lon = np.array(
+                [
+                    74,
+                    85,
+                    85,
+                    86,
+                    86,
+                    87,
+                    87,
+                    88,
+                    88,
+                    88,
+                    85,
+                    85,
+                    82,
+                    82,
+                    79,
+                    79,
+                    78,
+                    78,
+                    69,
+                    69,
+                    74,
+                    74,
+                ]
+            )
+            polygon1_lat = np.array(
+                [
+                    18,
+                    18,
+                    19,
+                    19,
+                    20,
+                    20,
+                    21,
+                    21,
+                    21,
+                    24,
+                    24,
+                    25,
+                    25,
+                    26,
+                    26,
+                    27,
+                    27,
+                    28,
+                    28,
+                    21,
+                    21,
+                    18,
+                ]
+            )
             print("Using 1-degree CMZ polygon coordinates")
 
-        inside_mask, inside_lons, inside_lats = points_inside_polygon(polygon1_lon, polygon1_lat, orig_lon, orig_lat)
+        inside_mask, inside_lons, inside_lats = points_inside_polygon(
+            polygon1_lon, polygon1_lat, orig_lon, orig_lat
+        )
         clim_onset_slice = clim_onset.sel(lat=inside_lats, lon=inside_lons)
 
         all_forecast_obs_pairs = []
-        
+
         for target_year in target_years:
             print(f"\n{'='*50}")
             print(f"Processing target year {target_year}")
             print(f"{'='*50}")
-            
+
             try:
                 # Get initialization dates for this year
-                _,init_dates = ProbabilisticOnsetMetrics.get_forecast_probabilistic_twice_weekly_2(target_year, model_forecast_dir, mem_num, date_filter_year, file_pattern)
-                
-                
-                # Create forecast-observation pairs for this year
-                forecast_obs_pairs = ClimatologyOnsetMetrics.create_climatological_forecast_obs_pairs(
-                    clim_onset=clim_onset_slice,
-                    target_year=target_year,
-                    init_dates=init_dates,
-                    day_bins=day_bins,
-                    max_forecast_day=max_forecast_day,
-                    mok=mok
+                _, init_dates = (
+                    ProbabilisticOnsetMetrics.get_forecast_probabilistic_twice_weekly_2(
+                        target_year,
+                        model_forecast_dir,
+                        mem_num,
+                        date_filter_year,
+                        file_pattern,
+                    )
                 )
-                
+
+                # Create forecast-observation pairs for this year
+                forecast_obs_pairs = (
+                    ClimatologyOnsetMetrics.create_climatological_forecast_obs_pairs(
+                        clim_onset=clim_onset_slice,
+                        target_year=target_year,
+                        init_dates=init_dates,
+                        day_bins=day_bins,
+                        max_forecast_day=max_forecast_day,
+                        mok=mok,
+                    )
+                )
+
                 if len(forecast_obs_pairs) > 0:
                     all_forecast_obs_pairs.append(forecast_obs_pairs)
-                    print(f"Target year {target_year} completed: {len(forecast_obs_pairs)} pairs")
+                    print(
+                        f"Target year {target_year} completed: {len(forecast_obs_pairs)} pairs"
+                    )
                 else:
                     print(f"No pairs generated for target year {target_year}")
-                
+
             except Exception as e:
                 print(f"Error processing target year {target_year}: {e}")
                 continue
-        
+
         # Combine all years
         if not all_forecast_obs_pairs:
             raise ValueError("No data was successfully processed for any target year")
-        
+
         combined_forecast_obs = pd.concat(all_forecast_obs_pairs, ignore_index=True)
-        
+
         print(f"\n{'='*50}")
         print("CLIMATOLOGICAL FORECAST SUMMARY")
         print(f"{'='*50}")
         print(f"Target years processed: {target_years}")
         print(f"Total forecast-observation pairs: {len(combined_forecast_obs)}")
-        print(f"Probability range: {combined_forecast_obs['predicted_prob'].min():.3f} - {combined_forecast_obs['predicted_prob'].max():.3f}")
-        print(f"Overall observed onset rate: {combined_forecast_obs['observed_onset'].mean():.3f}")
-        
+        print(
+            f"Probability range: {combined_forecast_obs['predicted_prob'].min():.3f} - {combined_forecast_obs['predicted_prob'].max():.3f}"
+        )
+        print(
+            f"Overall observed onset rate: {combined_forecast_obs['observed_onset'].mean():.3f}"
+        )
+
         return combined_forecast_obs
-    
+
     @staticmethod
     def calculate_brier_score_climatology(forecast_obs_df):
-        """
-        Calculate Brier Score and Fair Brier Score for probabilistic forecasts.
-        
+        """Calculate Brier Score and Fair Brier Score for probabilistic forecasts.
+
         Brier Score = (1/n*m) * Σ(Y_ij - p_ij)²
         Fair Brier Score = (1/n*m) * Σ[(Y_ij - p_ij)² - p_ij(1-p_ij)/(ens-1)]
-        
+
         where:
         - n = number of forecasts
-        - m = number of bins per forecast  
+        - m = number of bins per forecast
         - Y_ij = 1 if onset occurred in bin j for forecast i, 0 otherwise
         - p_ij = predicted probability for bin j in forecast i
         - ens = number of ensemble members
-        
+
         Note: Excludes "Before initialization" bin from calculations
-        
+
         Parameters:
         -----------
         forecast_obs_df : DataFrame
             Output from create_forecast_observation_pairs_with_bins()
             Must contain columns: 'predicted_prob', 'observed_onset', 'total_members', 'bin_label'
-        
+
         Returns:
         --------
         dict with Brier score metrics
         """
-        
         # Filter out "Before initialization" bin
-        filtered_df = forecast_obs_df[forecast_obs_df['bin_label'] != 'Before initialization'].copy()
-        
+        filtered_df = forecast_obs_df[
+            forecast_obs_df["bin_label"] != "Before initialization"
+        ].copy()
+
         if len(filtered_df) == 0:
-            print("Warning: No data remaining after filtering out 'Before initialization' bin")
+            print(
+                "Warning: No data remaining after filtering out 'Before initialization' bin"
+            )
             return {
-                'brier_score': np.nan,
-                'fair_brier_score': np.nan,
-                'bin_brier_scores': {},
-                'bin_fair_brier_scores': {},
-                'n_samples': 0,
-                'filtered_bins': []
+                "brier_score": np.nan,
+                "fair_brier_score": np.nan,
+                "bin_brier_scores": {},
+                "bin_fair_brier_scores": {},
+                "n_samples": 0,
+                "filtered_bins": [],
             }
-        
-        print(f"Calculating Brier Score excluding 'Before initialization' bin")
-        print(f"Original samples: {len(forecast_obs_df)}, After filtering: {len(filtered_df)}")
-        
+
+        print("Calculating Brier Score excluding 'Before initialization' bin")
+        print(
+            f"Original samples: {len(forecast_obs_df)}, After filtering: {len(filtered_df)}"
+        )
+
         # Calculate squared differences
-        squared_diffs = (filtered_df['observed_onset'] - filtered_df['predicted_prob'])**2
-        
+        squared_diffs = (
+            filtered_df["observed_onset"] - filtered_df["predicted_prob"]
+        ) ** 2
+
         # Calculate overall Brier Score
         brier_score = squared_diffs.mean()
-        
+
         # Calculate Fair Brier Score correction term
         # ens-1 where ens is the number of ensemble members
-        correction_term = (filtered_df['predicted_prob'] * (1 - filtered_df['predicted_prob'])) / (filtered_df['total_members_with_onset'] - 1)
-        
+        correction_term = (
+            filtered_df["predicted_prob"] * (1 - filtered_df["predicted_prob"])
+        ) / (filtered_df["total_members_with_onset"] - 1)
+
         # Fair Brier Score
         fair_brier_components = squared_diffs - correction_term
         fair_brier_score = fair_brier_components.mean()
-        
+
         # Calculate squared differences for bin-wise analysis
-        filtered_df['squared_diff'] = squared_diffs
-        filtered_df['fair_brier_component'] = fair_brier_components
-        
+        filtered_df["squared_diff"] = squared_diffs
+        filtered_df["fair_brier_component"] = fair_brier_components
+
         # Bin-wise Brier scores (excluding "Before initialization")
-        bin_brier_scores = filtered_df.groupby('bin_label')['squared_diff'].mean()
-        bin_fair_brier_scores = filtered_df.groupby('bin_label')['fair_brier_component'].mean()
-        
+        bin_brier_scores = filtered_df.groupby("bin_label")["squared_diff"].mean()
+        bin_fair_brier_scores = filtered_df.groupby("bin_label")[
+            "fair_brier_component"
+        ].mean()
+
         brier_results = {
-            'brier_score': brier_score,
-            'fair_brier_score': fair_brier_score,
-            'bin_brier_scores': bin_brier_scores.to_dict(),
-            'bin_fair_brier_scores': bin_fair_brier_scores.to_dict(),
-            'n_samples': len(filtered_df),
-            'filtered_bins': sorted(filtered_df['bin_label'].unique()),
-            'excluded_bins': ['Before initialization']
+            "brier_score": brier_score,
+            "fair_brier_score": fair_brier_score,
+            "bin_brier_scores": bin_brier_scores.to_dict(),
+            "bin_fair_brier_scores": bin_fair_brier_scores.to_dict(),
+            "n_samples": len(filtered_df),
+            "filtered_bins": sorted(filtered_df["bin_label"].unique()),
+            "excluded_bins": ["Before initialization"],
         }
-        
-        print(f"Brier Score (excluding 'Before initialization'): {brier_results['brier_score']:.4f}")
-        print(f"Fair Brier Score (excluding 'Before initialization'): {brier_results['fair_brier_score']:.4f}")
+
+        print(
+            f"Brier Score (excluding 'Before initialization'): {brier_results['brier_score']:.4f}"
+        )
+        print(
+            f"Fair Brier Score (excluding 'Before initialization'): {brier_results['fair_brier_score']:.4f}"
+        )
         print(f"Bins included in calculation: {brier_results['filtered_bins']}")
 
         return brier_results
 
     @staticmethod
     def calculate_auc_climatology(forecast_obs_df):
-        """
-        Calculate Area Under the Curve (AUC) for probabilistic forecasts.
-        
-        AUC = Σ_{i,j,i',j'} Y_{ij}(1-Y_{i'j'}) · 1[p_{ij} > p_{i'j'}] / 
+        """Calculate Area Under the Curve (AUC) for probabilistic forecasts.
+
+        AUC = Σ_{i,j,i',j'} Y_{ij}(1-Y_{i'j'}) · 1[p_{ij} > p_{i'j'}] /
             [(Σ_{i,j} Y_{ij})(Σ_{i,j} (1-Y_{ij}))]
-        
+
         where:
         - Y_{ij} = 1 if onset occurred in bin j for forecast i, 0 otherwise
         - p_{ij} = predicted probability for bin j in forecast i
         - 1[p_{ij} > p_{i'j'}] = indicator function (1 if true, 0 if false)
-        
+
         Parameters:
         -----------
         forecast_obs_df : DataFrame
             Output from create_forecast_observation_pairs_with_bins()
             Must contain columns: 'predicted_prob', 'observed_onset'
-        
+
         Returns:
         --------
         dict with AUC metrics
         """
-        forecast_obs_df = forecast_obs_df[forecast_obs_df['bin_label'] != 'Before initialization'].copy()
+        forecast_obs_df = forecast_obs_df[
+            forecast_obs_df["bin_label"] != "Before initialization"
+        ].copy()
         # Extract probabilities and observations
-        p_ij = forecast_obs_df['predicted_prob'].values
-        y_ij = forecast_obs_df['observed_onset'].values
-        
+        p_ij = forecast_obs_df["predicted_prob"].values
+        y_ij = forecast_obs_df["observed_onset"].values
+
         # Count total positive and negative cases
         n_positive = np.sum(y_ij)  # Σ Y_{ij}
         n_negative = np.sum(1 - y_ij)  # Σ (1-Y_{ij})
-        
+
         if n_positive == 0 or n_negative == 0:
-            print("Warning: Cannot calculate AUC - all cases are either positive or negative")
+            print(
+                "Warning: Cannot calculate AUC - all cases are either positive or negative"
+            )
             return {
-                'auc': np.nan,
-                'n_positive': n_positive,
-                'n_negative': n_negative,
-                'bin_auc_scores': {},
-                'forecast_obs_df_with_ranks': forecast_obs_df
+                "auc": np.nan,
+                "n_positive": n_positive,
+                "n_negative": n_negative,
+                "bin_auc_scores": {},
+                "forecast_obs_df_with_ranks": forecast_obs_df,
             }
-        
+
         # Calculate AUC using the Mann-Whitney U statistic approach
         # This is equivalent to the formula but more computationally efficient
-        
+
         # Separate positive and negative cases
         positive_probs = p_ij[y_ij == 1]
         negative_probs = p_ij[y_ij == 0]
-        
+
         # Calculate Mann-Whitney U statistic
-        u_statistic, _ = stats.mannwhitneyu(positive_probs, negative_probs, alternative='greater')
-        
+        u_statistic, _ = stats.mannwhitneyu(
+            positive_probs, negative_probs, alternative="greater"
+        )
+
         # AUC is U statistic divided by (n_positive * n_negative)
         auc = u_statistic / (n_positive * n_negative)
-        
+
         # Alternative direct calculation (less efficient for large datasets)
         # concordant_pairs = 0
         # for i in range(len(p_ij)):
@@ -1185,36 +1343,37 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         #                 if p_ij[i] > p_ij[j]:
         #                     concordant_pairs += 1
         # auc_direct = concordant_pairs / (n_positive * n_negative)
-        
+
         # Calculate AUC by bin
         bin_auc_scores = {}
-        unique_bins = forecast_obs_df['bin_label'].unique()
-        
+        unique_bins = forecast_obs_df["bin_label"].unique()
+
         for bin_label in unique_bins:
-            bin_data = forecast_obs_df[forecast_obs_df['bin_label'] == bin_label]
-            
+            bin_data = forecast_obs_df[forecast_obs_df["bin_label"] == bin_label]
+
             if len(bin_data) > 0:
-                bin_p = bin_data['predicted_prob'].values
-                bin_y = bin_data['observed_onset'].values
-                
+                bin_p = bin_data["predicted_prob"].values
+                bin_y = bin_data["observed_onset"].values
+
                 bin_n_positive = np.sum(bin_y)
                 bin_n_negative = np.sum(1 - bin_y)
-                
+
                 if bin_n_positive > 0 and bin_n_negative > 0:
                     bin_positive_probs = bin_p[bin_y == 1]
                     bin_negative_probs = bin_p[bin_y == 0]
-                    
-                    bin_u_stat, _ = stats.mannwhitneyu(bin_positive_probs, bin_negative_probs, alternative='greater')
+
+                    bin_u_stat, _ = stats.mannwhitneyu(
+                        bin_positive_probs, bin_negative_probs, alternative="greater"
+                    )
                     bin_auc = bin_u_stat / (bin_n_positive * bin_n_negative)
                 else:
                     bin_auc = np.nan
-                
+
                 bin_auc_scores[bin_label] = bin_auc
 
-
         auc_results = {
-            'auc': auc,
-            'bin_auc_scores': bin_auc_scores,
+            "auc": auc,
+            "bin_auc_scores": bin_auc_scores,
         }
-        
+
         return auc_results
