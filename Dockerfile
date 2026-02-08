@@ -40,7 +40,6 @@ ENV PYTHONPATH=/project
 
 # Install deps into /opt/venv
 RUN uv sync --extra netcdf4 --active
-RUN uv pip install --no-cache-dir jupyterlab ipykernel
 
 # Default to an interactive shell (compose may override).
 CMD ["/bin/bash"]
