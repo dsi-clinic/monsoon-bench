@@ -190,7 +190,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
                 total_points = onset_da.size
 
                 print(
-                    f"Year {year}: Found onset in {valid_onsets}/{total_points} grid points ({valid_onsets/total_points:.1%})"
+                    f"Year {year}: Found onset in {valid_onsets}/{total_points} grid points ({valid_onsets / total_points:.1%})"
                 )
 
                 # Store the onset array
@@ -228,9 +228,9 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         total_possible = len(valid_years) * thresh_slice.size
         total_valid = (~pd.isna(climatological_onset_da.values)).sum()
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("CLIMATOLOGICAL ONSET DATASET SUMMARY")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(
             f"Years processed: {len(valid_years)} ({min(valid_years)}-{max(valid_years)})"
         )
@@ -238,7 +238,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
             f"Spatial domain: {len(thresh_slice.lat)} lats x {len(thresh_slice.lon)} lons"
         )
         print(
-            f"Total valid onsets: {total_valid:,}/{total_possible:,} ({total_valid/total_possible:.1%})"
+            f"Total valid onsets: {total_valid:,}/{total_possible:,} ({total_valid / total_possible:.1%})"
         )
         print(f"Method: {'MOK (June 2nd filter)' if mok else 'No date filter'}")
 
@@ -247,7 +247,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         for i, year in enumerate(valid_years):
             year_onsets = (~pd.isna(climatological_onset_da.isel(year=i).values)).sum()
             print(
-                f"  {year}: {year_onsets}/{thresh_slice.size} ({year_onsets/thresh_slice.size:.1%})"
+                f"  {year}: {year_onsets}/{thresh_slice.size} ({year_onsets / thresh_slice.size:.1%})"
             )
 
         return climatological_onset_da
@@ -1117,9 +1117,9 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         all_forecast_obs_pairs = []
 
         for target_year in target_years:
-            print(f"\n{'='*50}")
+            print(f"\n{'=' * 50}")
             print(f"Processing target year {target_year}")
-            print(f"{'='*50}")
+            print(f"{'=' * 50}")
 
             try:
                 # Get initialization dates for this year
@@ -1163,9 +1163,9 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
 
         combined_forecast_obs = pd.concat(all_forecast_obs_pairs, ignore_index=True)
 
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print("CLIMATOLOGICAL FORECAST SUMMARY")
-        print(f"{'='*50}")
+        print(f"{'=' * 50}")
         print(f"Target years processed: {target_years}")
         print(f"Total forecast-observation pairs: {len(combined_forecast_obs)}")
         print(
@@ -1377,3 +1377,82 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         }
 
         return auc_results
+
+    @staticmethod
+    def calculate_rps_climatology(forecast_obs_df):
+        """Calculate Ranked Probability Score (RPS) and Fair RPS for forecasts.
+
+        RPS = (1/(M-1)) * Σ [ (Σ p_k) - (Σ o_k) ]²
+        where:
+        - M is the number of bins
+        - p_k is the predicted probability for bin k
+        - o_k is the binary observation (1 or 0) for bin k
+
+        Parameters:
+        -----------
+        forecast_obs_df : DataFrame
+            Must contain: 'init_time', 'lat', 'lon', 'bin_label', 
+            'predicted_prob', 'observed_onset', 'total_members_with_onset'
+        
+        Returns:
+        --------
+        dict with RPS metrics
+        """
+        # 1. Filter out unwanted bins
+        filtered_df = forecast_obs_df[
+            forecast_obs_df["bin_label"] != "Before initialization"
+        ].copy()
+
+        if len(filtered_df) == 0:
+            return {"rps": np.nan, "fair_rps": np.nan, "n_samples": 0}
+
+        # 2. Extract and sort bins chronologically
+        def extract_day_range(bin_label):
+            if "Days " in bin_label:
+                try:
+                    return int(bin_label.replace("Days ", "").split("-")[0])
+                except: return 999
+            return 999
+
+        sorted_bins = sorted(filtered_df["bin_label"].unique(), key=extract_day_range)
+        num_bins = len(sorted_bins)
+
+        # 3. Pivot to align probabilities and observations by bin order
+        # Each row is a unique forecast (initialization + location)
+        idx_cols = ['init_time', 'lat', 'lon']
+        pivot_prob = filtered_df.pivot_table(index=idx_cols, columns='bin_label', values='predicted_prob')[sorted_bins].fillna(0)
+        pivot_obs = filtered_df.pivot_table(index=idx_cols, columns='bin_label', values='observed_onset')[sorted_bins].fillna(0)
+        
+        # Get ensemble sizes for the 'Fair' correction
+        ens_sizes = filtered_df.groupby(idx_cols)['total_members_with_onset'].first()
+
+        # 4. Calculate Cumulative Distributions (CDF)
+        cum_p = pivot_prob.cumsum(axis=1)
+        cum_o = pivot_obs.cumsum(axis=1)
+
+        # 5. Calculate RPS
+        # Squared difference of cumulative distributions, summed across bins, normalized by (M-1)
+        squared_diff_cdf = (cum_p - cum_o)**2
+        # Standard RPS convention usually divides by (num_bins - 1) 
+        # to bound the score between 0 and 1
+        rps_per_forecast = squared_diff_cdf.sum(axis=1) / (num_bins - 1)
+
+        # 6. Calculate Fair RPS Correction
+        # Fair RPS = RPS - Σ [cum_p * (1 - cum_p)] / (ens - 1)
+        # This accounts for bias in small ensemble sizes
+        correction = (cum_p * (1 - cum_p)).sum(axis=1) / ((ens_sizes - 1) * (num_bins - 1))
+        fair_rps_per_forecast = rps_per_forecast - correction
+
+        results = {
+            "rps": rps_per_forecast.mean(),
+            "fair_rps": fair_rps_per_forecast.mean(),
+            "n_samples": len(pivot_prob),
+            "bins_evaluated": sorted_bins,
+            "rps_per_forecast": rps_per_forecast.to_dict(), # Useful for spatial plotting
+        }
+
+        print(f"Calculated RPS across {results['n_samples']} samples.")
+        print(f"Overall RPS: {results['rps']:.4f}")
+        print(f"Overall Fair RPS: {results['fair_rps']:.4f}")
+
+        return results
