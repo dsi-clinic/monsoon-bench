@@ -44,6 +44,8 @@ __all__ = [
     "create_model_comparison_table",
     "plot_model_comparison_dual_axis",
     "compare_models",
+    "create_probabilistic_comparison_table",
+    "plot_probabilistic_comparison_dual_axis",
 ]
 
 
@@ -175,6 +177,9 @@ def create_model_comparison_table(
         "overall_mae_mean_days",
         "overall_far_pct",
         "overall_mr_pct",
+        "fair_brier_skill_score",
+        "fair_rps_skill_score",
+        "auc_score"
     ]
     existing_cols = [c for c in ordered_cols if c in comparison_df.columns]
     return comparison_df[existing_cols]
@@ -304,6 +309,119 @@ def plot_model_comparison_dual_axis(
     return fig, (ax_left, ax_right)
 
 
+def create_probabilistic_comparison_table(prob_plot_data: dict) -> pd.DataFrame:
+    """
+    Tidy comparison table that handles both spatial metrics (MAE/FAR/MR) 
+    and scalar skill scores (BSS/RPSS/AUC).
+    """
+    rows = []
+    for model_name, metrics_dict in prob_plot_data.items():
+        # 1. Handle spatial metrics (averaging the DataArrays)
+        # This mimics the internal _summarize_single_model logic
+        summary = {}
+        for k, v in metrics_dict.items():
+            if isinstance(v, xr.DataArray):
+                # Only average metrics that are spatial maps
+                if any(m in k.lower() for m in ["mae", "far", "mr"]):
+                    summary[k] = float(v.mean().values)
+            elif isinstance(v, (float, np.float64, np.float32)):
+                # Directly take scalar values (Skill Scores/AUC)
+                summary[k] = float(v)
+        
+        summary["model"] = model_name
+        rows.append(summary)
+
+    comparison_df = pd.DataFrame(rows).set_index("model")
+    
+    # Define the columns we want in the final table
+    ordered_cols = [
+        "cmz_mae_mean_days", "cmz_far_pct", "cmz_mr_pct",
+        "fair_brier_skill_score", "fair_rps_skill_score", "auc_score"
+    ]
+    # Keep only what exists
+    existing = [c for c in ordered_cols if c in comparison_df.columns]
+    return comparison_df[existing]
+
+
+def plot_probabilistic_comparison_dual_axis(
+    comparison_df: pd.DataFrame,
+    skill_cols: Sequence[str] = ("fair_brier_skill_score", "fair_rps_skill_score"),
+    auc_col: str = "auc_score",
+    figsize: tuple[float, float] = (10.0, 6.0),
+    title: str | None = None,
+    rotation: int = 0,
+) -> tuple[plt.Figure, tuple[plt.Axes, plt.Axes]]:
+    
+    # Check for missing columns
+    existing_skills = [c for c in skill_cols if c in comparison_df.columns]
+    if not existing_skills and auc_col not in comparison_df.columns:
+        raise ValueError("No probabilistic metrics found in DataFrame.")
+
+    fig, ax_left = plt.subplots(figsize=figsize)
+    ax_right = ax_left.twinx()
+
+    models = comparison_df.index.astype(str).tolist()
+    x = np.arange(len(models), dtype=float)
+
+    # Calculate total bars per group
+    n_bars = len(existing_skills) + (1 if auc_col in comparison_df.columns else 0)
+    width = 0.8 / float(n_bars)
+
+    # Colors (Matching repository style)
+    skill_colors = ["#3498db", "#2ecc71"] # Blue, Green
+    auc_color = "#e74c3c"                # Red
+
+    # --- Spine Styling (matching your provided code) ---
+    ax_left.spines["right"].set_visible(False)
+    ax_right.spines["left"].set_visible(False)
+
+    # ---- Skill Scores (Left Axis) ----
+    for i, (col, color) in enumerate(zip(existing_skills, skill_colors)):
+        offset = (i - (n_bars - 1) / 2.0) * width
+        values = comparison_df[col].to_numpy()
+        label = "BSS" if "brier" in col else "RPSS" if "rps" in col else col
+        
+        ax_left.bar(
+            x + offset, values, width=width, label=label,
+            color=color, edgecolor="black", linewidth=0.5
+        )
+
+    # ---- AUC (Right Axis) ----
+    if auc_col in comparison_df.columns:
+        offset = (len(existing_skills) - (n_bars - 1) / 2.0) * width
+        auc_values = comparison_df[auc_col].to_numpy()
+        
+        ax_right.bar(
+            x + offset, auc_values, width=width, label="AUC",
+            color=auc_color, edgecolor="black", linewidth=0.5, alpha=0.9
+        )
+
+    # ---- Formatting ----
+    ax_left.set_xticks(x)
+    ax_left.set_xticklabels(models, rotation=rotation)
+    ax_left.set_ylabel("Skill Score (1.0 is Perfect)")
+    ax_right.set_ylabel("AUC Score (0.5 is Random)")
+
+    # Logical Baselines
+    ax_left.axhline(0, color="black", linewidth=0.8, linestyle="-") # Climatology baseline
+    ax_right.axhline(0.5, color=auc_color, linewidth=0.8, linestyle="--", alpha=0.5) # Random baseline
+
+    # Range setting
+    ax_left.set_ylim(min(-0.2, comparison_df[existing_skills].min().min() - 0.1), 1.0)
+    ax_right.set_ylim(0.4, 1.0)
+
+    # Unified Legend
+    h1, l1 = ax_left.get_legend_handles_labels()
+    h2, l2 = ax_right.get_legend_handles_labels()
+    ax_right.legend(h1 + h2, l1 + l2, loc="upper right", frameon=False)
+
+    if title:
+        ax_left.set_title(title)
+
+    fig.tight_layout()
+    return fig, (ax_left, ax_right)
+
+
 def compare_models(
     model_spatial_metrics: dict[str, Mapping[str, xr.DataArray]],
     mae_col: str = "cmz_mae_mean_days",
@@ -323,6 +441,28 @@ def compare_models(
         rotation=rotation,
     )
     return comparison_df, fig, (ax_left, ax_right)
+
+def compare_models_probabilistic(
+    model_spatial_metrics: dict[str, Mapping[str, xr.DataArray]],
+    mae_col: str = "cmz_mae_mean_days",
+    rate_cols: Sequence[str] = ("cmz_far_pct", "cmz_mr_pct"),
+    figsize: tuple[float, float] = (10.0, 6.0),
+    title: str | None = None,
+    rotation: int = 0,
+) -> tuple[pd.DataFrame, plt.Figure, tuple[plt.Axes, plt.Axes]]:
+    """Compare multiple models by creating a table and dual-axis plot."""
+    comparison_df = create_model_comparison_table(model_spatial_metrics)
+    fig, (ax_left, ax_right) = plot_probabilistic_comparison_dual_axis(
+        comparison_df=comparison_df,
+        mae_col=mae_col,
+        rate_cols=rate_cols,
+        figsize=figsize,
+        title=title,
+        rotation=rotation,
+    )
+    return comparison_df, fig, (ax_left, ax_right)
+
+
 
 def get_target_bins(brier_forecast, brier_climatology):
     """Extract and sort target bins"""
@@ -351,7 +491,6 @@ def create_heatmap(skill_results, auc_forecast, auc_climatology,
                   brier_forecast, brier_climatology, model_name, max_forecast_day, save_dir=None):
     """
     Create and save skill score heatmap
-    
     Parameters:
     -----------
     ... (other parameters)
