@@ -22,14 +22,14 @@ Expected spatial_metrics format (same as CLI/plot_spatial_metrics):
 
 from __future__ import annotations
 
-import os
 from collections.abc import Mapping, Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 import xarray as xr
+import os
+import seaborn as sns
 
 from monsoonbench.spatial.regions import (
     detect_resolution,
@@ -44,6 +44,8 @@ __all__ = [
     "create_model_comparison_table",
     "plot_model_comparison_dual_axis",
     "compare_models",
+    "create_probabilistic_comparison_table",
+    "plot_probabilistic_comparison_dual_axis",
 ]
 
 
@@ -175,6 +177,9 @@ def create_model_comparison_table(
         "overall_mae_mean_days",
         "overall_far_pct",
         "overall_mr_pct",
+        "fair_brier_skill_score",
+        "fair_rps_skill_score",
+        "auc_score"
     ]
     existing_cols = [c for c in ordered_cols if c in comparison_df.columns]
     return comparison_df[existing_cols]
@@ -304,6 +309,119 @@ def plot_model_comparison_dual_axis(
     return fig, (ax_left, ax_right)
 
 
+def create_probabilistic_comparison_table(prob_plot_data: dict) -> pd.DataFrame:
+    """
+    Tidy comparison table that handles both spatial metrics (MAE/FAR/MR) 
+    and scalar skill scores (BSS/RPSS/AUC).
+    """
+    rows = []
+    for model_name, metrics_dict in prob_plot_data.items():
+        # 1. Handle spatial metrics (averaging the DataArrays)
+        # This mimics the internal _summarize_single_model logic
+        summary = {}
+        for k, v in metrics_dict.items():
+            if isinstance(v, xr.DataArray):
+                # Only average metrics that are spatial maps
+                if any(m in k.lower() for m in ["mae", "far", "mr"]):
+                    summary[k] = float(v.mean().values)
+            elif isinstance(v, (float, np.float64, np.float32)):
+                # Directly take scalar values (Skill Scores/AUC)
+                summary[k] = float(v)
+        
+        summary["model"] = model_name
+        rows.append(summary)
+
+    comparison_df = pd.DataFrame(rows).set_index("model")
+    
+    # Define the columns we want in the final table
+    ordered_cols = [
+        "cmz_mae_mean_days", "cmz_far_pct", "cmz_mr_pct",
+        "fair_brier_skill_score", "fair_rps_skill_score", "auc_score"
+    ]
+    # Keep only what exists
+    existing = [c for c in ordered_cols if c in comparison_df.columns]
+    return comparison_df[existing]
+
+
+def plot_probabilistic_comparison_dual_axis(
+    comparison_df: pd.DataFrame,
+    skill_cols: Sequence[str] = ("fair_brier_skill_score", "fair_rps_skill_score"),
+    auc_col: str = "auc_score",
+    figsize: tuple[float, float] = (10.0, 6.0),
+    title: str | None = None,
+    rotation: int = 0,
+) -> tuple[plt.Figure, tuple[plt.Axes, plt.Axes]]:
+    
+    # Check for missing columns
+    existing_skills = [c for c in skill_cols if c in comparison_df.columns]
+    if not existing_skills and auc_col not in comparison_df.columns:
+        raise ValueError("No probabilistic metrics found in DataFrame.")
+
+    fig, ax_left = plt.subplots(figsize=figsize)
+    ax_right = ax_left.twinx()
+
+    models = comparison_df.index.astype(str).tolist()
+    x = np.arange(len(models), dtype=float)
+
+    # Calculate total bars per group
+    n_bars = len(existing_skills) + (1 if auc_col in comparison_df.columns else 0)
+    width = 0.8 / float(n_bars)
+
+    # Colors (Matching repository style)
+    skill_colors = ["#3498db", "#2ecc71"] # Blue, Green
+    auc_color = "#e74c3c"                # Red
+
+    # --- Spine Styling (matching your provided code) ---
+    ax_left.spines["right"].set_visible(False)
+    ax_right.spines["left"].set_visible(False)
+
+    # ---- Skill Scores (Left Axis) ----
+    for i, (col, color) in enumerate(zip(existing_skills, skill_colors)):
+        offset = (i - (n_bars - 1) / 2.0) * width
+        values = comparison_df[col].to_numpy()
+        label = "BSS" if "brier" in col else "RPSS" if "rps" in col else col
+        
+        ax_left.bar(
+            x + offset, values, width=width, label=label,
+            color=color, edgecolor="black", linewidth=0.5
+        )
+
+    # ---- AUC (Right Axis) ----
+    if auc_col in comparison_df.columns:
+        offset = (len(existing_skills) - (n_bars - 1) / 2.0) * width
+        auc_values = comparison_df[auc_col].to_numpy()
+        
+        ax_right.bar(
+            x + offset, auc_values, width=width, label="AUC",
+            color=auc_color, edgecolor="black", linewidth=0.5, alpha=0.9
+        )
+
+    # ---- Formatting ----
+    ax_left.set_xticks(x)
+    ax_left.set_xticklabels(models, rotation=rotation)
+    ax_left.set_ylabel("Skill Score (1.0 is Perfect)")
+    ax_right.set_ylabel("AUC Score (0.5 is Random)")
+
+    # Logical Baselines
+    ax_left.axhline(0, color="black", linewidth=0.8, linestyle="-") # Climatology baseline
+    ax_right.axhline(0.5, color=auc_color, linewidth=0.8, linestyle="--", alpha=0.5) # Random baseline
+
+    # Range setting
+    ax_left.set_ylim(min(-0.2, comparison_df[existing_skills].min().min() - 0.1), 1.0)
+    ax_right.set_ylim(0.4, 1.0)
+
+    # Unified Legend
+    h1, l1 = ax_left.get_legend_handles_labels()
+    h2, l2 = ax_right.get_legend_handles_labels()
+    ax_right.legend(h1 + h2, l1 + l2, loc="upper right", frameon=False)
+
+    if title:
+        ax_left.set_title(title)
+
+    fig.tight_layout()
+    return fig, (ax_left, ax_right)
+
+
 def compare_models(
     model_spatial_metrics: dict[str, Mapping[str, xr.DataArray]],
     mae_col: str = "cmz_mae_mean_days",
@@ -324,45 +442,55 @@ def compare_models(
     )
     return comparison_df, fig, (ax_left, ax_right)
 
+def compare_models_probabilistic(
+    model_spatial_metrics: dict[str, Mapping[str, xr.DataArray]],
+    mae_col: str = "cmz_mae_mean_days",
+    rate_cols: Sequence[str] = ("cmz_far_pct", "cmz_mr_pct"),
+    figsize: tuple[float, float] = (10.0, 6.0),
+    title: str | None = None,
+    rotation: int = 0,
+) -> tuple[pd.DataFrame, plt.Figure, tuple[plt.Axes, plt.Axes]]:
+    """Compare multiple models by creating a table and dual-axis plot."""
+    comparison_df = create_model_comparison_table(model_spatial_metrics)
+    fig, (ax_left, ax_right) = plot_probabilistic_comparison_dual_axis(
+        comparison_df=comparison_df,
+        mae_col=mae_col,
+        rate_cols=rate_cols,
+        figsize=figsize,
+        title=title,
+        rotation=rotation,
+    )
+    return comparison_df, fig, (ax_left, ax_right)
+
+
 
 def get_target_bins(brier_forecast, brier_climatology):
     """Extract and sort target bins"""
-    all_forecast_bins = set(brier_forecast["bin_fair_brier_scores"].keys())
-    all_clim_bins = set(brier_climatology["bin_fair_brier_scores"].keys())
+    all_forecast_bins = set(brier_forecast['bin_fair_brier_scores'].keys())
+    all_clim_bins = set(brier_climatology['bin_fair_brier_scores'].keys())
     common_bins = all_forecast_bins.intersection(all_clim_bins)
     target_bins = []
     for bin_label in common_bins:
-        if (
-            bin_label.startswith("Days ")
-            and not bin_label.startswith("After")
-            and not bin_label.startswith("Before")
-        ):
+        if (bin_label.startswith('Days ') and 
+            not bin_label.startswith('After') and 
+            not bin_label.startswith('Before')):
             target_bins.append(bin_label)
-
+    
     def extract_day_range(bin_label):
-        if "Days " in bin_label:
+        if 'Days ' in bin_label:
             try:
-                day_part = bin_label.replace("Days ", "").split("-")[0]
+                day_part = bin_label.replace('Days ', '').split('-')[0]
                 return int(day_part)
             except:
                 return 999
         return 999
-
+    
     return sorted(target_bins, key=extract_day_range)
 
-
-def create_heatmap(
-    skill_results,
-    auc_forecast,
-    auc_climatology,
-    brier_forecast,
-    brier_climatology,
-    model_name,
-    max_forecast_day,
-    save_dir=None,
-):
-    """Create and save skill score heatmap
-
+def create_heatmap(skill_results, auc_forecast, auc_climatology, 
+                  brier_forecast, brier_climatology, model_name, max_forecast_day, save_dir=None):
+    """
+    Create and save skill score heatmap
     Parameters:
     -----------
     ... (other parameters)
@@ -370,128 +498,92 @@ def create_heatmap(
         Directory to save the heatmap. If None, saves in current directory.
         If directory doesn't exist, it will be created.
     """
+    
     # Handle save directory
     if save_dir is not None:
         # Create directory if it doesn't exist
         os.makedirs(save_dir, exist_ok=True)
-
+        
         # Ensure save_dir ends with a path separator for proper joining
         if not save_dir.endswith(os.sep):
             save_dir += os.sep
     else:
         save_dir = ""
-
+    
     target_bins = get_target_bins(brier_forecast, brier_climatology)
-
+    
     # Prepare data
-    bss_values = [
-        skill_results["bin_fair_brier_skill_scores"].get(bin_name, np.nan)
-        for bin_name in target_bins
-    ]
-    auc_values = [
-        auc_forecast["bin_auc_scores"].get(bin_name, np.nan) for bin_name in target_bins
-    ]
-    auc_clim_values = [
-        auc_climatology["bin_auc_scores"].get(bin_name, np.nan)
-        for bin_name in target_bins
-    ]
-
-    bin_labels_short = [bin_name.replace("Days ", "") for bin_name in target_bins]
-
+    bss_values = [skill_results['bin_fair_brier_skill_scores'].get(bin_name, np.nan) for bin_name in target_bins]
+    auc_values = [auc_forecast['bin_auc_scores'].get(bin_name, np.nan) for bin_name in target_bins]
+    auc_clim_values = [auc_climatology['bin_auc_scores'].get(bin_name, np.nan) for bin_name in target_bins]
+    
+    bin_labels_short = [bin_name.replace('Days ', '') for bin_name in target_bins]
+    
     # Create figure
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 4))
-
+    
     # Plot 1: BSS heatmap
     bss_data = np.array(bss_values).reshape(1, -1)
-    sns.heatmap(
-        bss_data * 100,
-        annot=True,
-        fmt=".2g",
-        cmap="RdBu",
-        vmin=-40,
-        vmax=40,
-        center=0,
-        xticklabels=bin_labels_short,
-        cbar_kws={"orientation": "horizontal"},
-        ax=ax1,
-        annot_kws={"size": 12, "weight": "bold"},
-    )
-
-    ax1.set_xlabel("")
+    sns.heatmap(bss_data*100, 
+                annot=True, 
+                fmt='.2g', 
+                cmap='RdBu',
+                vmin=-40, vmax=40,
+                center=0,
+                xticklabels=bin_labels_short,
+                cbar_kws={"orientation": "horizontal"},
+                ax=ax1,
+                annot_kws={'size': 12, 'weight': 'bold'})
+    
+    ax1.set_xlabel('')
     ax1.set_xticklabels([])
-    ax1.set_ylabel("BSS (%)", fontsize=14)
+    ax1.set_ylabel('BSS (%)', fontsize=14)
     ax1.set_yticklabels([])
-
+    
     # Plot 2: AUC heatmap
     auc_data = np.array(auc_values).reshape(1, -1)
-    sns.heatmap(
-        auc_data,
-        annot=False,
-        cmap="Blues",
-        vmin=0.7,
-        vmax=1.0,
-        xticklabels=bin_labels_short,
-        cbar_kws={"orientation": "horizontal"},
-        ax=ax2,
-    )
-
+    sns.heatmap(auc_data, 
+                annot=False,
+                cmap='Blues',
+                vmin=0.7, vmax=1.0,
+                xticklabels=bin_labels_short,
+                cbar_kws={"orientation": "horizontal"},
+                ax=ax2)
+    
     # Add custom annotations
     for i, (auc_val, auc_clim_val) in enumerate(zip(auc_values, auc_clim_values)):
         if not np.isnan(auc_val) and not np.isnan(auc_clim_val):
-            ax2.text(
-                i + 0.5,
-                0.5,
-                f"{auc_val:.2g}",
-                ha="center",
-                va="center",
-                fontsize=12,
-                fontweight="bold",
-                color="black",
-            )
-            ax2.text(
-                i + 0.5,
-                0.2,
-                f"({auc_clim_val:.2g})",
-                ha="center",
-                va="center",
-                fontsize=8,
-                color="darkblue",
-            )
+            ax2.text(i + 0.5, 0.5, f'{auc_val:.2g}', 
+                    ha='center', va='center', 
+                    fontsize=12, fontweight='bold', color='black')
+            ax2.text(i + 0.5, 0.2, f'({auc_clim_val:.2g})', 
+                    ha='center', va='center', 
+                    fontsize=8, color='darkblue')
         elif not np.isnan(auc_val):
-            ax2.text(
-                i + 0.5,
-                0.5,
-                f"{auc_val:.2g}",
-                ha="center",
-                va="center",
-                fontsize=12,
-                fontweight="bold",
-                color="black",
-            )
-
-    ax2.set_xlabel("Forecast Day Bins", fontsize=14)
-    ax2.set_ylabel("AUC", fontsize=14)
+            ax2.text(i + 0.5, 0.5, f'{auc_val:.2g}', 
+                    ha='center', va='center', 
+                    fontsize=12, fontweight='bold', color='black')
+    
+    ax2.set_xlabel('Forecast Day Bins', fontsize=14)
+    ax2.set_ylabel('AUC', fontsize=14)
     ax2.set_yticklabels([])
-
+    
     plt.tight_layout()
-
+    
     # Save with model name and forecast days
-    figure_filename = (
-        f"{save_dir}skill_scores_heatmap_{model_name}_{max_forecast_day}day.png"
-    )
-    plt.savefig(figure_filename, dpi=300, bbox_inches="tight")
-    plt.show()  # Can delete for non-notebook vis
+    figure_filename = f'{save_dir}skill_scores_heatmap_{model_name}_{max_forecast_day}day.png'
+    plt.savefig(figure_filename, dpi=300, bbox_inches='tight')
+    plt.show() #Can delete for non-notebook vis
     plt.close()
-
+    
     print(f"Figure saved as '{figure_filename}'")
-
+    
     return figure_filename
 
 
-def plot_reliability_diagram(
-    forecast_obs_pairs_multi, years, max_forecast_day, save_path=None
-):
+def plot_reliability_diagram(forecast_obs_pairs_multi, years, max_forecast_day, save_path=None):
     """Plot reliability diagram from forecast-observation pairs."""
+    
     n_bins = 10
     bin_edges = np.linspace(0, 1, n_bins + 1)
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
@@ -502,33 +594,25 @@ def plot_reliability_diagram(
     n_forecasts_array = np.zeros(n_bins)
 
     print("\nReliability Analysis:")
-    print(
-        "Bin Range\t\tN_Forecasts\tMean_Forecast_Prob\tReliability\tFrequency\tError_Bar"
-    )
+    print("Bin Range\t\tN_Forecasts\tMean_Forecast_Prob\tReliability\tFrequency\tError_Bar")
     print("-" * 90)
 
     results_for_csv = []
 
     for i in range(n_bins):
         if i == 0:
-            in_bin = (forecast_obs_pairs_multi["predicted_prob"] >= bin_edges[i]) & (
-                forecast_obs_pairs_multi["predicted_prob"] <= bin_edges[i + 1]
-            )
+            in_bin = ((forecast_obs_pairs_multi['predicted_prob'] >= bin_edges[i]) & 
+                    (forecast_obs_pairs_multi['predicted_prob'] <= bin_edges[i+1]))
         else:
-            in_bin = (forecast_obs_pairs_multi["predicted_prob"] > bin_edges[i]) & (
-                forecast_obs_pairs_multi["predicted_prob"] <= bin_edges[i + 1]
-            )
-
+            in_bin = ((forecast_obs_pairs_multi['predicted_prob'] > bin_edges[i]) & 
+                    (forecast_obs_pairs_multi['predicted_prob'] <= bin_edges[i+1]))
+        
         n_forecasts = in_bin.sum()
         n_forecasts_array[i] = n_forecasts
-
+        
         if n_forecasts > 0:
-            mean_forecast_prob[i] = forecast_obs_pairs_multi.loc[
-                in_bin, "predicted_prob"
-            ].mean()
-            reliability_y[i] = forecast_obs_pairs_multi.loc[
-                in_bin, "observed_onset"
-            ].mean()
+            mean_forecast_prob[i] = forecast_obs_pairs_multi.loc[in_bin, 'predicted_prob'].mean()
+            reliability_y[i] = forecast_obs_pairs_multi.loc[in_bin, 'observed_onset'].mean()
             frequency[i] = n_forecasts / len(forecast_obs_pairs_multi)
             error_bar = np.sqrt(reliability_y[i] * (1 - reliability_y[i]) / n_forecasts)
         else:
@@ -536,27 +620,19 @@ def plot_reliability_diagram(
             reliability_y[i] = np.nan
             frequency[i] = 0
             error_bar = np.nan
-
+        
         bin_range = f"{bin_edges[i]:.1f}-{bin_edges[i+1]:.1f}"
-
-        print(
-            f"{bin_range}\t\t{n_forecasts}\t\t{mean_forecast_prob[i]:.3f}\t\t\t{reliability_y[i]:.3f}\t\t{frequency[i]:.3f}\t\t{error_bar:.3f}"
-        )
-
-        results_for_csv.append(
-            {
-                "Bin_Range": bin_range,
-                "N_Forecasts": n_forecasts,
-                "Mean_Forecast_Prob": round(mean_forecast_prob[i], 3)
-                if not np.isnan(mean_forecast_prob[i])
-                else np.nan,
-                "Observed_Frequency": round(reliability_y[i], 3)
-                if not np.isnan(reliability_y[i])
-                else np.nan,
-                "Frequency": round(frequency[i], 3),
-                "Error_Bar": round(error_bar, 3) if not np.isnan(error_bar) else np.nan,
-            }
-        )
+        
+        print(f"{bin_range}\t\t{n_forecasts}\t\t{mean_forecast_prob[i]:.3f}\t\t\t{reliability_y[i]:.3f}\t\t{frequency[i]:.3f}\t\t{error_bar:.3f}")
+        
+        results_for_csv.append({
+            'Bin_Range': bin_range,
+            'N_Forecasts': n_forecasts,
+            'Mean_Forecast_Prob': round(mean_forecast_prob[i], 3) if not np.isnan(mean_forecast_prob[i]) else np.nan,
+            'Observed_Frequency': round(reliability_y[i], 3) if not np.isnan(reliability_y[i]) else np.nan,
+            'Frequency': round(frequency[i], 3),
+            'Error_Bar': round(error_bar, 3) if not np.isnan(error_bar) else np.nan
+        })
 
     results_df = pd.DataFrame(results_for_csv)
 
@@ -566,35 +642,23 @@ def plot_reliability_diagram(
     fig, ax = plt.subplots(1, 1, figsize=(10, 8))
 
     valid_bins = ~np.isnan(reliability_y) & ~np.isnan(mean_forecast_prob)
-    ax.errorbar(
-        mean_forecast_prob[valid_bins],
-        reliability_y[valid_bins],
-        yerr=error_bars[valid_bins],
-        fmt="o-",
-        color="blue",
-        linewidth=2,
-        markersize=8,
-        capsize=5,
-        capthick=2,
-        label="Reliability",
-    )
+    ax.errorbar(mean_forecast_prob[valid_bins], reliability_y[valid_bins], 
+                yerr=error_bars[valid_bins], fmt='o-', 
+                color='blue', linewidth=2, markersize=8, capsize=5, capthick=2,
+                label='Reliability')
 
-    ax.plot([0, 1], [0, 1], "k--", linewidth=1, label="Perfect Reliability")
+    ax.plot([0, 1], [0, 1], 'k--', linewidth=1, label='Perfect Reliability')
 
     ax2 = ax.twinx()
-    ax2.set_yscale("log")
-    ax2.bar(
-        bin_centers, frequency, width=0.08, alpha=0.3, color="gray", label="Frequency"
-    )
+    ax2.set_yscale('log')
+    ax2.bar(bin_centers, frequency, width=0.08, alpha=0.3, color='gray', label='Frequency')
     max_freq = max(frequency)
-    min_freq = (
-        min([f for f in frequency if f > 0]) if any(f > 0 for f in frequency) else 1e-4
-    )
+    min_freq = min([f for f in frequency if f > 0]) if any(f > 0 for f in frequency) else 1e-4
     ax2.set_ylim(min_freq * 0.5, max_freq * 2)
-    ax2.set_ylabel("Forecast frequency", fontsize=12)
+    ax2.set_ylabel('Forecast frequency', fontsize=12)
 
-    ax.set_xlabel("Forecast Probability", fontsize=12)
-    ax.set_ylabel("Observed Frequency", fontsize=12)
+    ax.set_xlabel('Forecast Probability', fontsize=12)
+    ax.set_ylabel('Observed Frequency', fontsize=12)
 
     if len(years) > 1:
         year_str = f"{min(years)}-{max(years)}"
@@ -604,17 +668,17 @@ def plot_reliability_diagram(
     ax.grid(True, alpha=0.3)
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
-
+    
     # Save figure if save_path provided
     if save_path:
         os.makedirs(save_path, exist_ok=True)
-        fig_save_path = os.path.join(
-            save_path, f"reliability_{max_forecast_day}day.png"
-        )
-        fig.savefig(fig_save_path, dpi=600, bbox_inches="tight")
+        fig_save_path = os.path.join(save_path, f'reliability_{max_forecast_day}day.png')
+        fig.savefig(fig_save_path, dpi=600, bbox_inches='tight')
         print(f"Figure saved to: {fig_save_path}")
-
+    
     plt.tight_layout()
     plt.show()
-
+    
     return fig, ax, results_df
+
+
