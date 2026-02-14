@@ -654,7 +654,8 @@ def plot_reliability_diagram(forecast_obs_pairs_multi, years, max_forecast_day, 
     ax2.bar(bin_centers, frequency, width=0.08, alpha=0.3, color='gray', label='Frequency')
     max_freq = max(frequency)
     min_freq = min([f for f in frequency if f > 0]) if any(f > 0 for f in frequency) else 1e-4
-    ax2.set_ylim(min_freq * 0.5, max_freq * 2)
+    # ax2.set_ylim(min_freq * 0.5, max_freq * 2)
+    ax2.set_ylim(0.001, 1)
     ax2.set_ylabel('Forecast frequency', fontsize=12)
 
     ax.set_xlabel('Forecast Probability', fontsize=12)
