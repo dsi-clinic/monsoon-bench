@@ -22,11 +22,11 @@ import geopandas as gpd
 import numpy as np
 import xarray as xr
 
-# Initialize Metric Computation Classes
-pr = ProbabilisticOnsetMetrics()
-cl = ClimatologyOnsetMetrics()
+def output_heatmap(args):
+    # Initialize Metric Computation Classes
+    pr = ProbabilisticOnsetMetrics()
+    cl = ClimatologyOnsetMetrics()
 
-def make_figure_2(args):
     if args['max_forecast_day'] == 15:
         day_bins = [(1, 5), (6, 10), (11, 15)]
     elif args['max_forecast_day'] == 30:
@@ -84,7 +84,7 @@ def make_figure_2(args):
 
     print("\n5. Calculating climatology scores...")
     brier_climatology = cl.calculate_brier_score_climatology(climatology_obs_df)
-    rps_climatology = cl.calculate_rps_climatology(climatology_obs_df)
+    rps_climatology = pr.calculate_rps(climatology_obs_df)
     auc_climatology = cl.calculate_auc_climatology(climatology_obs_df)
 
     # Calculate skill scores
@@ -94,61 +94,57 @@ def make_figure_2(args):
         brier_climatology, rps_climatology
     )
 
+    ################# FIGURES A and B
     # Create heatmap
-    print("\n8. Creating heatmap...")
-    heatmap_file = create_heatmap(
+    print("\n7. Creating heatmap...")
+    create_heatmap(
         skill_results, auc_forecast, auc_climatology,
         brier_forecast, brier_climatology, args['model_name'], args['max_forecast_day'],
         save_dir=str(args['save_dir'])
     )
 
-    ################# FIGURE C AND D
-    # Loading models
-    probabilistic_df, onset_da_dict = pr.compute_metrics_multiple_years(
-                years=args["years"],
-                imd_folder=args["imd_folder"],
-                thres_file=args["thres_file"],
-                model_forecast_dir=args["model_forecast_dir"],
-                tolerance_days=3,
-                verification_window=1,
-                forecast_days=15,
-                max_forecast_day=15,
-                mok=True,
-                onset_window=5,
-                mok_month=6,
-                mok_day=2,
-            )
+def output_reliability_diagram(args):
+    # Initialize Metric Computation Classes
+    pr = ProbabilisticOnsetMetrics()
+    cl = ClimatologyOnsetMetrics()
 
-    # --- 5. Build Single-Model Comparison Table ---
-    # Average the spatial maps to get scalar values for the table
-    summary_row = {
-        "model": args['model_name'],
-        "fair_brier_skill_score": skill_results["fair_brier_skill_score"],
-        "fair_rps_skill_score": skill_results["fair_rps_skill_score"],
-    }
+    if args['max_forecast_day'] == 15:
+        day_bins = [(1, 5), (6, 10), (11, 15)]
+    elif args['max_forecast_day'] == 30:
+        day_bins = [(1, 5), (6, 10), (11, 15), (16, 20), (21, 25), (26, 30)]
+    else:
+        raise ValueError(f"Unsupported max_forecast_day: {args['max_forecast_day']}")
+    
+    # Print args metadata
+    print("="*60)
+    print("S2S MONSOON ONSET SKILL SCORE ANALYSIS")
+    print("="*60)
+    print(f"Model: {args['model_name']}")
+    print(f"Years: {args['years']}")
+    print(f"Max forecast day: {args['max_forecast_day']}")
+    print(f"Day bins: {day_bins}")
+    print(f"MOK filter: {args['mok']} ({'June 2nd' if args['mok'] else 'May 1st'})")
+    if args['save_dir']:
+        print(f"Output directory: {args['save_dir']}")
+    else:
+        print("Output directory: current directory")
+    print("="*60)
 
-    single_model_df = pd.DataFrame([summary_row]).set_index("model")
-
-    # --- 6. Plotting ---
-    fig, (ax_left, ax_right) = plot_probabilistic_comparison_dual_axis(
-        comparison_df=single_model_df,
-        skill_cols=["fair_brier_skill_score", "fair_rps_skill_score"],
-        title=f"Probabilistic Performance: {args['model_name'].upper()}",
-        rotation=0
-    )
-
-    # Save output
-    output_path = f"{args['save_dir']}/{args['model_name']}_probabilistic_metrics.png"
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    plt.show()
-
-    print(f"Evaluation complete for {args['model_name']}.")
-
-
+    # Create forecast observation dataframe
+    print("\n1. Processing forecast model...")
+    forecast_obs_df = pr.multi_year_forecast_obs_pairs(
+            args['years'], args['model_forecast_dir'], args['imd_folder'], 
+            args['thres_file'], args['mem_num'],
+            args['max_forecast_day'], day_bins, 
+            date_filter_year=args['date_filter_year'], 
+            file_pattern=args['file_pattern'],
+            mok=args['mok']
+        )
+    
     ################# FIGURE E
     # Plot reliability diagram and get results
     fig, ax, reliability_df = plot_reliability_diagram(
-        forecast_obs_df, 
+        forecast_obs_df,
         args['years'], 
         args['max_forecast_day'],
         args['save_dir']
