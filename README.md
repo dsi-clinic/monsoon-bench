@@ -15,28 +15,28 @@ MonsoonBench includes detailed module-specific guides. Use the links below to na
 ### Core Package Overview & Pipeline
 High-level explanation of the evaluation pipeline, CLI interface, onset metrics, and NetCDF outputs.  
 **Path:** `monsoonbench/README.md`  
-[Open Metrics & Pipeline README](monsoonbench/README.md)
+[Open Metrics & Pipeline README](https://github.com/dsi-clinic/monsoon-bench/blob/main/monsoonbench/README.md)
 
 ---
 
 ### Data Loading Guide
 How to load IMD rainfall, deterministic/probabilistic forecasts, and threshold datasets using the unified API.  
 **Path:** `monsoonbench/data/dataloader_quickstart.md`  
-[Open DataLoader QuickStart](monsoonbench/data/dataloader_quickstart.md)
+[Open DataLoader QuickStart](https://github.com/dsi-clinic/monsoon-bench/blob/main/monsoonbench/data/dataloader_quickstart.md)
 
 ---
 
 ### Visualization & Metric Export Tools
 How to generate spatial scorecards and export skill metrics in NetCDF, CSV, Parquet, or JSON formats.  
 **Path:** `monsoonbench/visualization/README.md`  
-[Open Visualization README](monsoonbench/visualization/README.md)
+[Open Visualization README](https://github.com/dsi-clinic/monsoon-bench/blob/main/monsoonbench/visualization/README.md)
 
 ---
 
 ### Examples (Configs, Scripts, Notebooks)
 Example YAML configs, runnable scripts, and tutorial notebooks demonstrating end-to-end usage.  
 **Path:** `examples/README.md`  
-[Open Examples README](examples/README.md)
+[Open Examples README](https://github.com/dsi-clinic/monsoon-bench/blob/main/examples/README.md)
 
 ---
 
