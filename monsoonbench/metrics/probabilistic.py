@@ -12,9 +12,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import xarray as xr
-from metrics import OnsetMetricsBase
-from scipy import stats
-from spatial.regions import points_inside_polygon
+
+from monsoonbench.metrics import OnsetMetricsBase
+# from monsoonbench.spatial.regions import points_inside_polygon
 
 
 class ProbabilisticOnsetMetrics(OnsetMetricsBase):
