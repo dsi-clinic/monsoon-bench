@@ -16,6 +16,7 @@ from scipy import stats
 from spatial.regions import points_inside_polygon
 
 from .base import OnsetMetricsBase
+from spatial.regions import points_inside_polygon
 from .probabilistic import ProbabilisticOnsetMetrics
 
 

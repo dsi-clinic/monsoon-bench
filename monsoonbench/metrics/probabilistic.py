@@ -13,8 +13,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from monsoonbench.metrics import OnsetMetricsBase
-# from monsoonbench.spatial.regions import points_inside_polygon
+from metrics import OnsetMetricsBase
+from spatial.regions import points_inside_polygon
 
 
 class ProbabilisticOnsetMetrics(OnsetMetricsBase):
@@ -110,13 +110,13 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
             
         # Load data using xarray
         ds = xr.open_dataset(file_path)
-        if "time" in ds.dims:
-            ds = ds.rename({"time": "init_time"})
-        if "number" in ds.dims:
-            ds = ds.rename({"number": "member"})
-        if "sample" in ds.dims:
-            ds = ds.rename({"sample": "member"})
-        elif "member" not in ds.dims:
+        if 'time' in ds.dims:
+            ds = ds.rename({'time': 'init_time'})
+        if 'number' in ds.dims:
+            ds = ds.rename({'number': 'member'})
+        if 'sample' in ds.dims:
+            ds = ds.rename({'sample': 'member'})
+        elif 'member' not in ds.dims:
             ds = ds.expand_dims(member=np.arange(4))
         
         # Find common dates between desired dates and available dates
@@ -282,9 +282,15 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
                                         check = window_series[0][0]
                                     else:
                                         check = window_series[0]
+    
+                                    if window_series.ndim > 1:
+                                        check = window_series[0][0]
+                                    else:
+                                        check = window_series[0]
 
                                     # Check basic onset condition: first day > 1mm AND 5-day sum > threshold
                                     if (
+                                        check > 1
                                         check > 1
                                         and np.nansum(window_series) > thresh
                                     ):
@@ -586,6 +592,8 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
             # Loop over unique lat-lon pairs only
             for i, lat in enumerate(lats):
                 for j, lon in enumerate(lons):
+            for i, lat in enumerate(lats):
+                for j, lon in enumerate(lons):
                 
                     total_potential_forecasts += len(members)
                     
@@ -656,12 +664,12 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
                             
                             # Store result
                             result = {
-                                "init_time": init_time,
-                                "lat": lat,
-                                "lon": lon, 
-                                "member": member,
-                                "onset_day": onset_day,
-                                "obs_onset_date": obs_onset_dt.strftime("%Y-%m-%d")
+                                'init_time': init_time,
+                                'lat': lat,
+                                'lon': lon, 
+                                'member': member,
+                                'onset_day': onset_day,
+                                'obs_onset_date': obs_onset_dt.strftime('%Y-%m-%d')
                             }
                             results_list.append(result)
                             
@@ -851,6 +859,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
         date_filter_year: int = 2024,
         file_pattern: str = "{}.nc",
         cmz_only:bool=False
+        cmz_only:bool=False
     ):
         """Main function to perform multi-year reliability analysis.
         """Main function to perform multi-year reliability analysis.
@@ -890,7 +899,28 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
                 polygon1_lon = np.array([74, 85, 85, 86, 86, 87, 87, 88, 88, 88, 85, 85, 82, 82, 79, 79, 78, 78, 69, 69, 74, 74])
                 polygon1_lat = np.array([18, 18, 19, 19, 20, 20, 21, 21, 21, 24, 24, 25, 25, 26, 26, 27, 27, 28, 28, 21, 21, 18])
                 print("Using 1-degree CMZ polygon coordinates")
+        if cmz_only:
+            lat_diff = abs(orig_lat[1]-orig_lat[0])
+            if abs(lat_diff - 2.0) < 0.1:  # 2-degree resolution
+                polygon1_lon = np.array([83, 75, 75, 71, 71, 77, 77, 79, 79, 83, 83, 89, 89, 85, 85, 83, 83])
+                polygon1_lat = np.array([17, 17, 21, 21, 29, 29, 27, 27, 25, 25, 23, 23, 21, 21, 19, 19, 17])
+                print("Using 2-degree CMZ polygon coordinates")
+            elif abs(lat_diff - 4.0) < 0.1:  # 4-degree resolution
+                polygon1_lon = np.array([86, 74, 74, 70, 70, 82, 82, 86, 86])
+                polygon1_lat = np.array([18, 18, 22, 22, 30, 30, 26, 26, 18])
+                print("Using 4-degree CMZ polygon coordinates")
+            elif abs(lat_diff - 1.0) < 0.1:  # 1-degree resolution
+                polygon1_lon = np.array([74, 85, 85, 86, 86, 87, 87, 88, 88, 88, 85, 85, 82, 82, 79, 79, 78, 78, 69, 69, 74, 74])
+                polygon1_lat = np.array([18, 18, 19, 19, 20, 20, 21, 21, 21, 24, 24, 25, 25, 26, 26, 27, 27, 28, 28, 21, 21, 18])
+                print("Using 1-degree CMZ polygon coordinates")
 
+            inside_mask, inside_lons, inside_lats = points_inside_polygon(polygon1_lon, polygon1_lat, orig_lon, orig_lat)
+            thresh_slice = thresh_da.sel(lat=inside_lats, lon=inside_lons)
+        else:
+            inside_lats = orig_lat
+            inside_lons = orig_lon
+            thresh_slice = thresh_da
+            print(f"All-domain mode: using {len(inside_lats)} lat x {len(inside_lons)} lon grid points")
             inside_mask, inside_lons, inside_lats = points_inside_polygon(polygon1_lon, polygon1_lat, orig_lon, orig_lat)
             thresh_slice = thresh_da.sel(lat=inside_lats, lon=inside_lons)
         else:
