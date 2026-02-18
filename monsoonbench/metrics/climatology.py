@@ -4,19 +4,20 @@ This module provides the ClimatologyOnsetMetrics class for computing
 climatological baseline metrics for monsoon onset prediction.
 """
 
+import glob
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
-from scipy import stats
-import os
-import glob
 
 import numpy as np
 import pandas as pd
 import xarray as xr
+from scipy import stats
+from spatial.regions import points_inside_polygon
 
 from .base import OnsetMetricsBase
-from spatial.regions import points_inside_polygon
 from .probabilistic import ProbabilisticOnsetMetrics
+
 
 class ClimatologyOnsetMetrics(OnsetMetricsBase):
     """Class to compute climatology onset metrics."""
@@ -119,8 +120,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
     ## This function computes onset dates for all available years in IMD folder and creates a climatological onset dataset
     @staticmethod
     def compute_climatological_onset_dataset(imd_folder, thresh_slice, years=None, mok=True):
-        """
-        Compute onset dates for all available years in IMD folder and create a climatological dataset.
+        """Compute onset dates for all available years in IMD folder and create a climatological dataset.
         
         Parameters:
         -----------
@@ -138,22 +138,21 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         xarray.DataArray
             3D array with dimensions [year, lat, lon] containing onset dates
         """
-        
         # Auto-detect available years if not specified
         if years is None:
             years = []
             # Look for files matching common IMD naming patterns
-            file_patterns = ['data_*.nc', '*.nc']
+            file_patterns = ["data_*.nc", "*.nc"]
             
             for pattern in file_patterns:
                 files = glob.glob(os.path.join(imd_folder, pattern))
                 for file in files:
                     filename = os.path.basename(file)
                     # Extract year from filename
-                    if filename.startswith('data_'):
-                        year_str = filename.replace('data_', '').replace('.nc', '')
+                    if filename.startswith("data_"):
+                        year_str = filename.replace("data_", "").replace(".nc", "")
                     else:
-                        year_str = filename.replace('.nc', '')
+                        year_str = filename.replace(".nc", "")
                     year = int(year_str)
                     years.append(year)
                 
@@ -206,16 +205,16 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         climatological_onset_da = xr.DataArray(
             onset_3d,
             coords=[
-                ('year', valid_years),
-                ('lat', thresh_slice.lat.values),
-                ('lon', thresh_slice.lon.values)
+                ("year", valid_years),
+                ("lat", thresh_slice.lat.values),
+                ("lon", thresh_slice.lon.values)
             ],
-            name='climatological_onset_dates',
+            name="climatological_onset_dates",
             attrs={
-                'description': 'Onset dates for climatological ensemble',
-                'method': 'MOK (June 2nd filter)' if mok else 'no date filter',
-                'years_processed': valid_years,
-                'total_years': len(valid_years)
+                "description": "Onset dates for climatological ensemble",
+                "method": "MOK (June 2nd filter)" if mok else "no date filter",
+                "years_processed": valid_years,
+                "total_years": len(valid_years)
             }
         )
         
@@ -224,7 +223,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         total_valid = (~pd.isna(climatological_onset_da.values)).sum()
         
         print(f"\n{'='*60}")
-        print(f"CLIMATOLOGICAL ONSET DATASET SUMMARY")
+        print("CLIMATOLOGICAL ONSET DATASET SUMMARY")
         print(f"{'='*60}")
         print(f"Years processed: {len(valid_years)} ({min(valid_years)}-{max(valid_years)})")
         print(f"Spatial domain: {len(thresh_slice.lat)} lats x {len(thresh_slice.lon)} lons")
@@ -232,7 +231,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         print(f"Method: {'MOK (June 2nd filter)' if mok else 'No date filter'}")
         
         # Show onset statistics by year
-        print(f"\nOnset statistics by year:")
+        print("\nOnset statistics by year:")
         for i, year in enumerate(valid_years):
             year_onsets = (~pd.isna(climatological_onset_da.isel(year=i).values)).sum()
             print(f"  {year}: {year_onsets}/{thresh_slice.size} ({year_onsets/thresh_slice.size:.1%})")
@@ -698,8 +697,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
     ## This function creates forecast-observation pairs using climatological ensemble where each year is a member
     @staticmethod
     def create_climatological_forecast_obs_pairs(clim_onset, target_year, init_dates, day_bins, max_forecast_day=15, mok=True):
-        """
-        Create forecast-observation pairs using climatological ensemble where each year is a member.
+        """Create forecast-observation pairs using climatological ensemble where each year is a member.
         Uses day-of-year instead of calendar dates for onset comparison.
         
         Parameters:
@@ -722,7 +720,6 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         --------
         DataFrame with forecast-observation pairs
         """
-        
         results_list = []
         
         # Get the observed onset for the target year
@@ -736,14 +733,14 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         ensemble_onset_da = clim_onset.sel(year=ensemble_years)
         
         # Create extended bins including "before initialization" and "after max_forecast_day" bins
-        extended_bins = [(-float('inf'), 0)] + day_bins + [(max_forecast_day + 1, float('inf'))]
+        extended_bins = [(-float("inf"), 0)] + day_bins + [(max_forecast_day + 1, float("inf"))]
 
         print(f"Creating climatological forecasts for target year {target_year}")
         print(f"Using {len(ensemble_years)} years as ensemble members: {ensemble_years}")
         print(f"Processing {len(init_dates)} initialization dates")
         print(f"Day bins: {day_bins}")
         print(f"Extended bins include: 'Before initialization' and 'After day {max_forecast_day}'")
-        print(f"Using day-of-year method for onset comparison")
+        print("Using day-of-year method for onset comparison")
         
         # Get the actual lat/lon coordinates from the data
         lats = obs_onset_da.lat.values  
@@ -814,7 +811,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
                     members_with_onset_in_bin = 0
                     
                     # Handle the "before initialization" bin
-                    if bin_start == -float('inf'):
+                    if bin_start == -float("inf"):
                         for i, member_onset_day in enumerate(ensemble_forecast_days):
                             if member_onset_day is not None and member_onset_day <= 0:
                                 members_with_onset_in_bin += 1
@@ -847,8 +844,8 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
                     contributing_years = []
                     
                     # Handle the "before initialization" bin
-                    if bin_start == -float('inf'):
-                        bin_label = 'Before initialization'
+                    if bin_start == -float("inf"):
+                        bin_label = "Before initialization"
                         
                         # Check if observed onset occurs before initialization (by day of year)
                         observed_onset = int(obs_onset_doy <= init_doy)
@@ -860,7 +857,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
                                 
                     # Handle the "after max_forecast_day" bin
                     elif bin_start > max_forecast_day:
-                        bin_label = f'After day {max_forecast_day}'
+                        bin_label = f"After day {max_forecast_day}"
                         
                         # Check if observed onset occurs after max_forecast_day (by day of year)
                         obs_days_from_init = obs_onset_doy - init_doy
@@ -874,7 +871,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
                                 
                     else:
                         # Regular bin within forecast window
-                        bin_label = f'Days {bin_start}-{bin_end}'
+                        bin_label = f"Days {bin_start}-{bin_end}"
                         
                         # Check if observed onset falls within this day bin (by day of year)
                         obs_days_from_init = obs_onset_doy - init_doy
@@ -889,30 +886,30 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
                     predicted_prob = members_with_onset_in_bin / total_members_with_onset
                     
                     # Convert contributing years to string for storage
-                    contributing_years_str = ','.join(map(str, sorted(contributing_years))) if contributing_years else ''
+                    contributing_years_str = ",".join(map(str, sorted(contributing_years))) if contributing_years else ""
                     
                     # Store result
                     result = {
-                        'init_time': init_date.strftime('%Y-%m-%d'),
-                        'lat': lat,
-                        'lon': lon,
-                        'bin_start': bin_start,
-                        'bin_end': bin_end,
-                        'bin_label': bin_label,
-                        'predicted_prob': predicted_prob,
-                        'observed_onset': observed_onset,
-                        'members_with_onset': members_with_onset_in_bin,
-                        'total_members': total_members,
-                        'total_members_with_onset': total_members_with_onset,  # New field
-                        'contributing_years': contributing_years_str,
-                        'n_contributing_years': len(contributing_years),
-                        'year': target_year,
-                        'obs_onset_date': obs_onset_dt.strftime('%Y-%m-%d'),
-                        'obs_onset_doy': obs_onset_doy,
-                        'init_doy': init_doy,
-                        'obs_days_from_init_doy': obs_days_from_init if 'obs_days_from_init' in locals() else (obs_onset_doy - init_doy),
-                        'bin_index': bin_idx,
-                        'forecast_type': 'climatological_doy'
+                        "init_time": init_date.strftime("%Y-%m-%d"),
+                        "lat": lat,
+                        "lon": lon,
+                        "bin_start": bin_start,
+                        "bin_end": bin_end,
+                        "bin_label": bin_label,
+                        "predicted_prob": predicted_prob,
+                        "observed_onset": observed_onset,
+                        "members_with_onset": members_with_onset_in_bin,
+                        "total_members": total_members,
+                        "total_members_with_onset": total_members_with_onset,  # New field
+                        "contributing_years": contributing_years_str,
+                        "n_contributing_years": len(contributing_years),
+                        "year": target_year,
+                        "obs_onset_date": obs_onset_dt.strftime("%Y-%m-%d"),
+                        "obs_onset_doy": obs_onset_doy,
+                        "init_doy": init_doy,
+                        "obs_days_from_init_doy": obs_days_from_init if "obs_days_from_init" in locals() else (obs_onset_doy - init_doy),
+                        "bin_index": bin_idx,
+                        "forecast_type": "climatological_doy"
                     }
                     results_list.append(result)
         
@@ -931,25 +928,24 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         print(f"Non-zero probabilities: {(forecast_obs_df['predicted_prob'] > 0).sum()}")
         
         # Verify uniqueness
-        unique_locations_in_output = len(forecast_obs_df[['lat', 'lon']].drop_duplicates())
+        unique_locations_in_output = len(forecast_obs_df[["lat", "lon"]].drop_duplicates())
         print(f"Unique locations in output: {unique_locations_in_output}")
         
         # Show distribution across bins
-        print(f"\nDistribution across bins:")
-        bin_stats = forecast_obs_df.groupby('bin_label').agg({
-            'predicted_prob': ['count', 'mean'],
-            'observed_onset': 'mean',
-            'n_contributing_years': 'mean',
-            'total_members_with_onset': 'mean'
+        print("\nDistribution across bins:")
+        bin_stats = forecast_obs_df.groupby("bin_label").agg({
+            "predicted_prob": ["count", "mean"],
+            "observed_onset": "mean",
+            "n_contributing_years": "mean",
+            "total_members_with_onset": "mean"
         }).round(3)
         print(bin_stats)
         
         return forecast_obs_df
 
     @staticmethod
-    def multi_year_climatological_forecast_obs_pairs(clim_onset, target_years, day_bins, mem_num, model_forecast_dir, date_filter_year=2024, file_pattern='tp_4p0_{}.nc', max_forecast_day=15, mok=True):
-        """
-        Create climatological forecast-observation pairs for multiple target years.
+    def multi_year_climatological_forecast_obs_pairs(clim_onset, target_years, day_bins, mem_num, model_forecast_dir, date_filter_year=2024, file_pattern="tp_4p0_{}.nc", max_forecast_day=15, mok=True):
+        """Create climatological forecast-observation pairs for multiple target years.
         
         Parameters:
         -----------
@@ -1040,8 +1036,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
     
     @staticmethod
     def calculate_brier_score_climatology(forecast_obs_df):
-        """
-        Calculate Brier Score and Fair Brier Score for probabilistic forecasts.
+        """Calculate Brier Score and Fair Brier Score for probabilistic forecasts.
         
         Brier Score = (1/n*m) * Σ(Y_ij - p_ij)²
         Fair Brier Score = (1/n*m) * Σ[(Y_ij - p_ij)² - p_ij(1-p_ij)/(ens-1)]
@@ -1065,54 +1060,53 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         --------
         dict with Brier score metrics
         """
-        
         # Filter out "Before initialization" bin
-        filtered_df = forecast_obs_df[forecast_obs_df['bin_label'] != 'Before initialization'].copy()
+        filtered_df = forecast_obs_df[forecast_obs_df["bin_label"] != "Before initialization"].copy()
         
         if len(filtered_df) == 0:
             print("Warning: No data remaining after filtering out 'Before initialization' bin")
             return {
-                'brier_score': np.nan,
-                'fair_brier_score': np.nan,
-                'bin_brier_scores': {},
-                'bin_fair_brier_scores': {},
-                'n_samples': 0,
-                'filtered_bins': []
+                "brier_score": np.nan,
+                "fair_brier_score": np.nan,
+                "bin_brier_scores": {},
+                "bin_fair_brier_scores": {},
+                "n_samples": 0,
+                "filtered_bins": []
             }
         
-        print(f"Calculating Brier Score excluding 'Before initialization' bin")
+        print("Calculating Brier Score excluding 'Before initialization' bin")
         print(f"Original samples: {len(forecast_obs_df)}, After filtering: {len(filtered_df)}")
         
         # Calculate squared differences
-        squared_diffs = (filtered_df['observed_onset'] - filtered_df['predicted_prob'])**2
+        squared_diffs = (filtered_df["observed_onset"] - filtered_df["predicted_prob"])**2
         
         # Calculate overall Brier Score
         brier_score = squared_diffs.mean()
         
         # Calculate Fair Brier Score correction term
         # ens-1 where ens is the number of ensemble members
-        correction_term = (filtered_df['predicted_prob'] * (1 - filtered_df['predicted_prob'])) / (filtered_df['total_members_with_onset'] - 1)
+        correction_term = (filtered_df["predicted_prob"] * (1 - filtered_df["predicted_prob"])) / (filtered_df["total_members_with_onset"] - 1)
         
         # Fair Brier Score
         fair_brier_components = squared_diffs - correction_term
         fair_brier_score = fair_brier_components.mean()
         
         # Calculate squared differences for bin-wise analysis
-        filtered_df['squared_diff'] = squared_diffs
-        filtered_df['fair_brier_component'] = fair_brier_components
+        filtered_df["squared_diff"] = squared_diffs
+        filtered_df["fair_brier_component"] = fair_brier_components
         
         # Bin-wise Brier scores (excluding "Before initialization")
-        bin_brier_scores = filtered_df.groupby('bin_label')['squared_diff'].mean()
-        bin_fair_brier_scores = filtered_df.groupby('bin_label')['fair_brier_component'].mean()
+        bin_brier_scores = filtered_df.groupby("bin_label")["squared_diff"].mean()
+        bin_fair_brier_scores = filtered_df.groupby("bin_label")["fair_brier_component"].mean()
         
         brier_results = {
-            'brier_score': brier_score,
-            'fair_brier_score': fair_brier_score,
-            'bin_brier_scores': bin_brier_scores.to_dict(),
-            'bin_fair_brier_scores': bin_fair_brier_scores.to_dict(),
-            'n_samples': len(filtered_df),
-            'filtered_bins': sorted(filtered_df['bin_label'].unique()),
-            'excluded_bins': ['Before initialization']
+            "brier_score": brier_score,
+            "fair_brier_score": fair_brier_score,
+            "bin_brier_scores": bin_brier_scores.to_dict(),
+            "bin_fair_brier_scores": bin_fair_brier_scores.to_dict(),
+            "n_samples": len(filtered_df),
+            "filtered_bins": sorted(filtered_df["bin_label"].unique()),
+            "excluded_bins": ["Before initialization"]
         }
         
         print(f"Brier Score (excluding 'Before initialization'): {brier_results['brier_score']:.4f}")
@@ -1123,8 +1117,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
 
     @staticmethod
     def calculate_auc_climatology(forecast_obs_df):
-        """
-        Calculate Area Under the Curve (AUC) for probabilistic forecasts.
+        """Calculate Area Under the Curve (AUC) for probabilistic forecasts.
         
         AUC = Σ_{i,j,i',j'} Y_{ij}(1-Y_{i'j'}) · 1[p_{ij} > p_{i'j'}] / 
             [(Σ_{i,j} Y_{ij})(Σ_{i,j} (1-Y_{ij}))]
@@ -1144,10 +1137,10 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         --------
         dict with AUC metrics
         """
-        forecast_obs_df = forecast_obs_df[forecast_obs_df['bin_label'] != 'Before initialization'].copy()
+        forecast_obs_df = forecast_obs_df[forecast_obs_df["bin_label"] != "Before initialization"].copy()
         # Extract probabilities and observations
-        p_ij = forecast_obs_df['predicted_prob'].values
-        y_ij = forecast_obs_df['observed_onset'].values
+        p_ij = forecast_obs_df["predicted_prob"].values
+        y_ij = forecast_obs_df["observed_onset"].values
         
         # Count total positive and negative cases
         n_positive = np.sum(y_ij)  # Σ Y_{ij}
@@ -1156,11 +1149,11 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         if n_positive == 0 or n_negative == 0:
             print("Warning: Cannot calculate AUC - all cases are either positive or negative")
             return {
-                'auc': np.nan,
-                'n_positive': n_positive,
-                'n_negative': n_negative,
-                'bin_auc_scores': {},
-                'forecast_obs_df_with_ranks': forecast_obs_df
+                "auc": np.nan,
+                "n_positive": n_positive,
+                "n_negative": n_negative,
+                "bin_auc_scores": {},
+                "forecast_obs_df_with_ranks": forecast_obs_df
             }
         
         # Calculate AUC using the Mann-Whitney U statistic approach
@@ -1171,7 +1164,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         negative_probs = p_ij[y_ij == 0]
         
         # Calculate Mann-Whitney U statistic
-        u_statistic, _ = stats.mannwhitneyu(positive_probs, negative_probs, alternative='greater')
+        u_statistic, _ = stats.mannwhitneyu(positive_probs, negative_probs, alternative="greater")
         
         # AUC is U statistic divided by (n_positive * n_negative)
         auc = u_statistic / (n_positive * n_negative)
@@ -1188,14 +1181,14 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         
         # Calculate AUC by bin
         bin_auc_scores = {}
-        unique_bins = forecast_obs_df['bin_label'].unique()
+        unique_bins = forecast_obs_df["bin_label"].unique()
         
         for bin_label in unique_bins:
-            bin_data = forecast_obs_df[forecast_obs_df['bin_label'] == bin_label]
+            bin_data = forecast_obs_df[forecast_obs_df["bin_label"] == bin_label]
             
             if len(bin_data) > 0:
-                bin_p = bin_data['predicted_prob'].values
-                bin_y = bin_data['observed_onset'].values
+                bin_p = bin_data["predicted_prob"].values
+                bin_y = bin_data["observed_onset"].values
                 
                 bin_n_positive = np.sum(bin_y)
                 bin_n_negative = np.sum(1 - bin_y)
@@ -1204,7 +1197,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
                     bin_positive_probs = bin_p[bin_y == 1]
                     bin_negative_probs = bin_p[bin_y == 0]
                     
-                    bin_u_stat, _ = stats.mannwhitneyu(bin_positive_probs, bin_negative_probs, alternative='greater')
+                    bin_u_stat, _ = stats.mannwhitneyu(bin_positive_probs, bin_negative_probs, alternative="greater")
                     bin_auc = bin_u_stat / (bin_n_positive * bin_n_negative)
                 else:
                     bin_auc = np.nan
@@ -1213,8 +1206,8 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
 
 
         auc_results = {
-            'auc': auc,
-            'bin_auc_scores': bin_auc_scores,
+            "auc": auc,
+            "bin_auc_scores": bin_auc_scores,
         }
         
         return auc_results

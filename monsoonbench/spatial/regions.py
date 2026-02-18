@@ -120,8 +120,7 @@ def detect_resolution(lats: np.ndarray) -> float:
 
 # Function to find grid points inside a polygon (For core-monsoon zone analysis)
 def points_inside_polygon(polygon_lon, polygon_lat, grid_lons, grid_lats):
-    """
-    Find grid points that are inside a polygon.
+    """Find grid points that are inside a polygon.
     
     Parameters:
     polygon_lon: array of polygon longitude vertices
@@ -134,7 +133,6 @@ def points_inside_polygon(polygon_lon, polygon_lat, grid_lons, grid_lats):
     inside_lons: longitude coordinates of points inside polygon
     inside_lats: latitude coordinates of points inside polygon
     """
-    
     # Create polygon path
     polygon_vertices = np.column_stack((polygon_lon, polygon_lat))
     polygon_path = MplPath(polygon_vertices)
