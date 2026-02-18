@@ -13,8 +13,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from monsoonbench.metrics import OnsetMetricsBase
-# from monsoonbench.spatial.regions import points_inside_polygon
+from metrics import OnsetMetricsBase
+from spatial.regions import points_inside_polygon
 
 
 class ProbabilisticOnsetMetrics(OnsetMetricsBase):
@@ -117,8 +117,8 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
             ds = ds.rename({'number': 'member'})
         if 'sample' in ds.dims:
             ds = ds.rename({'sample': 'member'})
-        else:
-            ds = ds.expand_dims(member=np.arange(4)) 
+        elif 'member' not in ds.dims:
+            ds = ds.expand_dims(member=np.arange(4))
         
         # Find common dates between desired dates and available dates
         available_init_times = pd.to_datetime(ds.init_time.values)
@@ -276,10 +276,15 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
 
                                 if end_idx <= len(forecast_series):
                                     window_series = forecast_series[start_idx:end_idx]
+    
+                                    if window_series.ndim > 1:
+                                        check = window_series[0][0]
+                                    else:
+                                        check = window_series[0]
 
                                     # Check basic onset condition: first day > 1mm AND 5-day sum > threshold
                                     if (
-                                        window_series[0] > 1
+                                        check > 1
                                         and np.nansum(window_series) > thresh
                                     ):
                                         # Calculate the actual date this forecast day represents
@@ -572,90 +577,91 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
             mok_date = datetime(year, 6, 2)
             
             # Loop over unique lat-lon pairs only
-            for loc_idx, (lon, lat) in enumerate(unique_pairs):
+            for i, lat in enumerate(lats):
+                for j, lon in enumerate(lons):
                 
-                total_potential_forecasts += len(members)
-                
-                # Get observed onset date for this location
-                try:
-                    obs_onset = onset_da.isel(lat=loc_idx, lon=loc_idx).values
-                except:
-                    skipped_no_obs += len(members)
-                    continue
-                
-                # Skip if no observed onset
-                if pd.isna(obs_onset):
-                    skipped_no_obs += len(members)
-                    continue
-                
-                # Convert observed onset to datetime
-                obs_onset_dt = pd.to_datetime(obs_onset)
-                
-                # Only process if forecast was initialized before observed onset
-                if init_date >= obs_onset_dt:
-                    skipped_late_init += len(members)
-                    continue
-                
-                # Get threshold for this location
-                thresh = thresh_slice.isel(lat=loc_idx, lon=loc_idx).values
-                
-                for m_idx, member in enumerate(members):
+                    total_potential_forecasts += len(members)
                     
-                    valid_forecasts += 1
-                    
+                    # Get observed onset date for this location
                     try:
-                        # Extract forecast time series for this member and location
-                        forecast_series = p_model.isel(
-                            init_time=t_idx,
-                            lat=loc_idx, 
-                            lon=loc_idx,
-                            member=m_idx,
-                            step=slice(0, max_steps_needed)
-                        ).values
+                        obs_onset = onset_da.isel(lat=i, lon=j).values
+                    except:
+                        skipped_no_obs += len(members)
+                        continue
+                    
+                    # Skip if no observed onset
+                    if pd.isna(obs_onset):
+                        skipped_no_obs += len(members)
+                        continue
+                    
+                    # Convert observed onset to datetime
+                    obs_onset_dt = pd.to_datetime(obs_onset)
+                    
+                    # Only process if forecast was initialized before observed onset
+                    if init_date >= obs_onset_dt:
+                        skipped_late_init += len(members)
+                        continue
+                    
+                    # Get threshold for this location
+                    thresh = thresh_slice.isel(lat=i, lon=j).values
+                    
+                    for m_idx, member in enumerate(members):
                         
-                        if len(forecast_series) < max_steps_needed:
-                            continue
+                        valid_forecasts += 1
                         
-                        # Check for onset on each possible day
-                        onset_day = None
-                        
-                        for day in range(1, max_forecast_day + 1):
-                            start_idx = day - 1
-                            end_idx = start_idx + window 
+                        try:
+                            # Extract forecast time series for this member and location
+                            forecast_series = p_model.isel(
+                                init_time=t_idx,
+                                lat=i, 
+                                lon=j,
+                                member=m_idx,
+                                step=slice(0, max_steps_needed)
+                            ).values
                             
-                            if end_idx <= len(forecast_series):
-                                window_series = forecast_series[start_idx:end_idx]
+                            if len(forecast_series) < max_steps_needed:
+                                continue
+                            
+                            # Check for onset on each possible day
+                            onset_day = None
+                            
+                            for day in range(1, max_forecast_day + 1):
+                                start_idx = day - 1
+                                end_idx = start_idx + window 
                                 
-                                # Check basic onset condition
-                                if window_series[0] > 1 and np.nansum(window_series) > thresh:
+                                if end_idx <= len(forecast_series):
+                                    window_series = forecast_series[start_idx:end_idx]
                                     
-                                    # Calculate the actual date this forecast day represents
-                                    forecast_date = init_date + pd.Timedelta(days=day)
-                                    
-                                    # If MOK flag is True, only count onset if it's on or after June 2nd
-                                    if mok:
-                                        if forecast_date.date() > mok_date.date():
+                                    # Check basic onset condition
+                                    if window_series[0] > 1 and np.nansum(window_series) > thresh:
+                                        
+                                        # Calculate the actual date this forecast day represents
+                                        forecast_date = init_date + pd.Timedelta(days=day)
+                                        
+                                        # If MOK flag is True, only count onset if it's on or after June 2nd
+                                        if mok:
+                                            if forecast_date.date() > mok_date.date():
+                                                onset_day = day
+                                                break
+                                        else:
                                             onset_day = day
                                             break
-                                    else:
-                                        onset_day = day
-                                        break
-                        
-                        # Store result
-                        result = {
-                            'init_time': init_time,
-                            'lat': lat,
-                            'lon': lon, 
-                            'member': member,
-                            'onset_day': onset_day,
-                            'obs_onset_date': obs_onset_dt.strftime('%Y-%m-%d')
-                        }
-                        results_list.append(result)
-                        
-                    except Exception as e:
-                        print(f"Error at init_time {t_idx}, location ({lon}, {lat}), member {m_idx}: {e}")
-                        continue
-        
+                            
+                            # Store result
+                            result = {
+                                'init_time': init_time,
+                                'lat': lat,
+                                'lon': lon, 
+                                'member': member,
+                                'onset_day': onset_day,
+                                'obs_onset_date': obs_onset_dt.strftime('%Y-%m-%d')
+                            }
+                            results_list.append(result)
+                            
+                        except Exception as e:
+                            print(f"Error at init_time {t_idx}, location ({lon}, {lat}), member {m_idx}: {e}")
+                            continue
+            
         # Convert to DataFrame
         onset_df = pd.DataFrame(results_list)
         
@@ -827,6 +833,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
         mok: bool = True,
         date_filter_year: int = 2024,
         file_pattern: str = "{}.nc",
+        cmz_only:bool=False
     ):
         """
         Main function to perform multi-year reliability analysis.
@@ -852,22 +859,28 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
         orig_lat = thresh_da.lat.values
         orig_lon = thresh_da.lon.values
 
-        lat_diff = abs(orig_lat[1]-orig_lat[0])
-        if abs(lat_diff - 2.0) < 0.1:  # 2-degree resolution
-            polygon1_lon = np.array([83, 75, 75, 71, 71, 77, 77, 79, 79, 83, 83, 89, 89, 85, 85, 83, 83])
-            polygon1_lat = np.array([17, 17, 21, 21, 29, 29, 27, 27, 25, 25, 23, 23, 21, 21, 19, 19, 17])
-            print("Using 2-degree CMZ polygon coordinates")
-        elif abs(lat_diff - 4.0) < 0.1:  # 4-degree resolution
-            polygon1_lon = np.array([86, 74, 74, 70, 70, 82, 82, 86, 86])
-            polygon1_lat = np.array([18, 18, 22, 22, 30, 30, 26, 26, 18])
-            print("Using 4-degree CMZ polygon coordinates")
-        elif abs(lat_diff - 1.0) < 0.1:  # 1-degree resolution
-            polygon1_lon = np.array([74, 85, 85, 86, 86, 87, 87, 88, 88, 88, 85, 85, 82, 82, 79, 79, 78, 78, 69, 69, 74, 74])
-            polygon1_lat = np.array([18, 18, 19, 19, 20, 20, 21, 21, 21, 24, 24, 25, 25, 26, 26, 27, 27, 28, 28, 21, 21, 18])
-            print("Using 1-degree CMZ polygon coordinates")
+        if cmz_only:
+            lat_diff = abs(orig_lat[1]-orig_lat[0])
+            if abs(lat_diff - 2.0) < 0.1:  # 2-degree resolution
+                polygon1_lon = np.array([83, 75, 75, 71, 71, 77, 77, 79, 79, 83, 83, 89, 89, 85, 85, 83, 83])
+                polygon1_lat = np.array([17, 17, 21, 21, 29, 29, 27, 27, 25, 25, 23, 23, 21, 21, 19, 19, 17])
+                print("Using 2-degree CMZ polygon coordinates")
+            elif abs(lat_diff - 4.0) < 0.1:  # 4-degree resolution
+                polygon1_lon = np.array([86, 74, 74, 70, 70, 82, 82, 86, 86])
+                polygon1_lat = np.array([18, 18, 22, 22, 30, 30, 26, 26, 18])
+                print("Using 4-degree CMZ polygon coordinates")
+            elif abs(lat_diff - 1.0) < 0.1:  # 1-degree resolution
+                polygon1_lon = np.array([74, 85, 85, 86, 86, 87, 87, 88, 88, 88, 85, 85, 82, 82, 79, 79, 78, 78, 69, 69, 74, 74])
+                polygon1_lat = np.array([18, 18, 19, 19, 20, 20, 21, 21, 21, 24, 24, 25, 25, 26, 26, 27, 27, 28, 28, 21, 21, 18])
+                print("Using 1-degree CMZ polygon coordinates")
 
-        inside_mask, inside_lons, inside_lats = points_inside_polygon(polygon1_lon, polygon1_lat, orig_lon, orig_lat)
-        thresh_slice = thresh_da.sel(lat=inside_lats, lon=inside_lons)
+            inside_mask, inside_lons, inside_lats = points_inside_polygon(polygon1_lon, polygon1_lat, orig_lon, orig_lat)
+            thresh_slice = thresh_da.sel(lat=inside_lats, lon=inside_lons)
+        else:
+            inside_lats = orig_lat
+            inside_lons = orig_lon
+            thresh_slice = thresh_da
+            print(f"All-domain mode: using {len(inside_lats)} lat x {len(inside_lons)} lon grid points")
 
         # Initialize list to store all forecast-observation pairs
         all_forecast_obs_pairs = []

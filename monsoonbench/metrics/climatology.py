@@ -15,7 +15,7 @@ import pandas as pd
 import xarray as xr
 
 from .base import OnsetMetricsBase
-from monsoonbench.spatial.regions import points_inside_polygon
+from spatial.regions import points_inside_polygon
 from .probabilistic import ProbabilisticOnsetMetrics
 
 class ClimatologyOnsetMetrics(OnsetMetricsBase):
