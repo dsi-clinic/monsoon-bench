@@ -12,9 +12,8 @@ import pandas as pd
 import xarray as xr
 from scipy import stats
 
-from monsoonbench.spatial.regions import points_inside_polygon
-
 from .base import OnsetMetricsBase
+from spatial.regions import points_inside_polygon
 from .probabilistic import ProbabilisticOnsetMetrics
 
 
