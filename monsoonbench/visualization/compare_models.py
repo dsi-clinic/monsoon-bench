@@ -530,7 +530,7 @@ def create_heatmap_visual(heatmap_data, model_name, max_forecast_day, save_dir=N
         auc_data,
         annot=False,
         cmap="Blues",
-        vmin=0.7,
+        vmin=0.5,
         vmax=1.0,
         xticklabels=bin_labels_short,
         cbar_kws={"orientation": "horizontal"},
