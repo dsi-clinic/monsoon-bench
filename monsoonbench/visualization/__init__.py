@@ -7,15 +7,9 @@ from monsoonbench.visualization.compare_models import (
     get_target_bins,
     plot_model_comparison_dual_axis,
     plot_reliability_diagram,
-    create_probabilistic_comparison_table,
-    plot_probabilistic_comparison_dual_axis,
 )
 from monsoonbench.visualization.data_downloader import download_spatial_metrics_data
 from monsoonbench.visualization.spatial import plot_spatial_metrics
-from monsoonbench.visualization.figures_2_and_5 import (
-    output_heatmap,
-    output_reliability_diagram,
-)
 
 __all__ = [
     "plot_spatial_metrics",
@@ -26,8 +20,4 @@ __all__ = [
     "get_target_bins",
     "plot_reliability_diagram",
     "create_heatmap",
-    "output_heatmap",
-    "output_reliability_diagram",
-    "create_probabilistic_comparison_table",
-    "plot_probabilistic_comparison_dual_axis",
 ]
