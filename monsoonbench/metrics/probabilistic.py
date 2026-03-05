@@ -58,9 +58,9 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
             ds = ds.rename({"time": "init_time"})
         if "number" in ds.dims:
             ds = ds.rename({"number": "member"})
-        # Failsafe for no-ensemble number specified data
-        else:
-            ds = ds.expand_dims(member=np.arange(4))
+        if "sample" in ds.dims:
+            ds = ds.rename({"sample": "member"})
+        
         # Find common dates between desired dates and available dates
         available_init_times = pd.to_datetime(ds.init_time.values)
         matching_times = available_init_times[
@@ -92,7 +92,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
     def get_forecast_probabilistic_twice_weekly_2(
         yr,
         model_forecast_dir,
-        mem_num,
+        mem_num=51,
         date_filter_year=2024,
         file_pattern="tp_4p0_{}.nc",
     ):
@@ -122,8 +122,6 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
             ds = ds.rename({"number": "member"})
         if "sample" in ds.dims:
             ds = ds.rename({"sample": "member"})
-        else:
-            ds = ds.expand_dims(member=np.arange(4))
 
         # Find common dates between desired dates and available dates
         available_init_times = pd.to_datetime(ds.init_time.values)
@@ -194,6 +192,12 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
         init_times = p_model.init_time.values
         lats = p_model.lat.values
         lons = p_model.lon.values
+        if "time" in p_model.dims:
+            p_model = p_model.rename({"time": "init_time"})
+        if "number" in p_model.dims:
+            p_model = p_model.rename({"number": "member"})
+        if "sample" in p_model.dims:
+            p_model = p_model.rename({"sample": "member"})
         members = p_model.member.values
 
         date_method = f"MOK ({mok_month}/{mok_day} filter)" if mok else "no date filter"
@@ -411,7 +415,6 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
             onset_da = OnsetMetricsBase.detect_observed_onset(
                 imd, thres_da, year, mok=mok
             )
-
             onset_df = ProbabilisticOnsetMetrics.compute_mean_onset_for_all_members(
                 p_model,
                 thres_da,
@@ -553,6 +556,12 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
 
         # Get dimensions
         init_times = p_model.init_time.values
+        if "time" in p_model.dims:
+            p_model = p_model.rename({"time": "init_time"})
+        if "number" in p_model.dims:
+            p_model = p_model.rename({"number": "member"})
+        if "sample" in p_model.dims:
+            p_model = p_model.rename({"sample": "member"})
         members = p_model.member.values
 
         # Get the actual lat/lon coordinates from the data
