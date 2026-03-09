@@ -1,6 +1,8 @@
-import matplotlib.pyplot as plt
+"""Utility functions for paper figures 1 & 4."""
+
 import numpy as np
 import pandas as pd
+from scipy.io import savemat
 import xarray as xr
 
 from monsoonbench.metrics import (
@@ -13,89 +15,99 @@ from monsoonbench.visualization import (
 )
 
 
+def get_model_dfs(
+    model_paths: dict[str, str],
+    year_ranges: dict[str, list[int]],
+    config: dict[str, str],
+    days: int = 15,
+) -> tuple[dict[str, pd.DataFrame], dict[str, xr.DataArray]]:
+    """
+    Get model dataframes and onset data arrays for a given set of model paths, year ranges, and forecast period.
 
-def get_model_dfs(model_paths, year_ranges, config, days=15):
+    Args:
+        model_paths: Dictionary of model names and their file paths.
+        year_ranges: Dictionary of model names and their year ranges.
+        config: Dictionary of configuration parameters.
+        days: Number of days to forecast (15 or 30).
+    """
     metrics = ProbabilisticOnsetMetrics()
     d_metrics = DeterministicOnsetMetrics()
 
     model_dfs = {}
     model_onsets = {}
+
+    # Validate verification window and tolerance days
     if days == 15:
-        for model_name, model_fp in model_paths.items():
-            try:
-                probabilistic_df, onset_da_dict = metrics.compute_metrics_multiple_years(
-                    years=year_ranges[model_name],
-                    imd_folder=config["imd_folder"],
-                    thres_file=config["thres_file"],
-                    model_forecast_dir=model_fp,
-                    tolerance_days=3,
-                    verification_window=1,
-                    forecast_days=days,
-                    max_forecast_day=days,
-                    mok=True,
-                    onset_window=5,
-                    mok_month=6,
-                    mok_day=2,
-                )
-            except:
-                probabilistic_df, onset_da_dict = d_metrics.compute_metrics_multiple_years(
-                    years=year_ranges[model_name],
-                    imd_folder=config["imd_folder"],
-                    thres_file=config["thres_file"],
-                    model_forecast_dir=model_fp,
-                    tolerance_days=3, #Unsure for 16-30 day forecasts (5 for 30 days)
-                    verification_window=1, #Unsure for 16-30 day forecasts (16 for 30 days)
-                    forecast_days=days,
-                    max_forecast_day=days,
-                    mok=True,
-                    onset_window=5, #Unsure for 16-30 day forecasts
-                    mok_month=6,
-                    mok_day=2,
-                )
-
-            model_dfs[model_name] = probabilistic_df
-            model_onsets[model_name] = onset_da_dict
-
-        return model_dfs, model_onsets
+        tol_days = 3
+        ver_window = 1
+    elif days == 30:
+        tol_days = 5
+        ver_window = 16
     else:
-        for model_name, model_fp in model_paths.items():
-            try:
-                probabilistic_df, onset_da_dict = metrics.compute_metrics_multiple_years(
-                    years=year_ranges[model_name],
-                    imd_folder=config["imd_folder"],
-                    thres_file=config["thres_file"],
-                    model_forecast_dir=model_fp,
-                    tolerance_days=5,
-                    verification_window=16,
-                    forecast_days=30,
-                    max_forecast_day=30,
-                    mok=True,
-                    onset_window=5,
-                    mok_month=6,
-                    mok_day=2,
-                )
-            except:
-                probabilistic_df, onset_da_dict = d_metrics.compute_metrics_multiple_years(
-                    years=year_ranges[model_name],
-                    imd_folder=config["imd_folder"],
-                    thres_file=config["thres_file"],
-                    model_forecast_dir=model_fp,
-                    tolerance_days=5, #Unsure for 16-30 day forecasts (5 for 30 days)
-                    verification_window=16, #Unsure for 16-30 day forecasts (16 for 30 days)
-                    forecast_days=30,
-                    max_forecast_day=30,
-                    mok=True,
-                    onset_window=5, #Unsure for 16-30 day forecasts
-                    mok_month=6,
-                    mok_day=2,
-                )
+        raise ValueError(f"Invalid forecast period: {days}. Must be 15 or 30")
 
-            model_dfs[model_name] = probabilistic_df
-            model_onsets[model_name] = onset_da_dict
+    # Compute metrics for each model
+    for model_name, model_fp in model_paths.items():
+        try:
+            probabilistic_df, onset_da_dict = metrics.compute_metrics_multiple_years(
+                years=year_ranges[model_name],
+                imd_folder=config["imd_folder"],
+                thres_file=config["thres_file"],
+                model_forecast_dir=model_fp,
+                tolerance_days=tol_days,
+                verification_window=ver_window,
+                forecast_days=days,
+                max_forecast_day=days,
+                mok=True,
+                onset_window=5,
+                mok_month=6,
+                mok_day=2,
+            )
+        except Exception:
+            probabilistic_df, onset_da_dict = d_metrics.compute_metrics_multiple_years(
+                years=year_ranges[model_name],
+                imd_folder=config["imd_folder"],
+                thres_file=config["thres_file"],
+                model_forecast_dir=model_fp,
+                tolerance_days=tol_days,
+                verification_window=ver_window,
+                forecast_days=days,
+                max_forecast_day=days,
+                mok=True,
+                onset_window=5,
+                mok_month=6,
+                mok_day=2,
+            )
 
-        return model_dfs, model_onsets
-    
-def get_plot_metrics(model_dfs, model_onsets, metrics_df_clim, onset_da_clim, config, day=15):
+        model_dfs[model_name] = probabilistic_df
+        model_onsets[model_name] = onset_da_dict
+
+    return model_dfs, model_onsets
+
+
+def get_plot_metrics(
+    model_dfs: dict[str, pd.DataFrame],
+    model_onsets: dict[str, xr.DataArray],
+    metrics_df_clim: pd.DataFrame,
+    onset_da_clim: xr.DataArray,
+    config: dict[str, str],
+    day: int = 15,
+) -> dict[str, np.ndarray]:
+    """
+    Get Figure 1 & 4 plot metrics for a given set of model
+    dataframes, onset data arrays, climatological data, and configuration.
+
+    Args:
+        model_dfs: Dictionary of model names and their individual metric dataframes.
+        model_onsets: Dictionary of model names and their onset data arrays.
+        metrics_df_clim: Climatological metrics dataframe.
+        onset_da_clim: Climatological onset data array.
+        config: Dictionary of configuration parameters.
+        day: Number of days to forecast (15 or 30).
+
+    Returns:
+        Dictionary of plot metrics.
+    """
     plot_metrics = {}
     c_metrics = ClimatologyOnsetMetrics()
 
@@ -130,7 +142,6 @@ def get_plot_metrics(model_dfs, model_onsets, metrics_df_clim, onset_da_clim, co
             if "false" in stat:
                 false_alarm_15.append(plot_metrics[model_name][stat])
 
-
     mae_yr_15 = xr.concat(mae_yr_15, dim="stack").transpose()
     miss_rate_15 = xr.concat(miss_rate_15, dim="stack").transpose()
     false_alarm_15 = xr.concat(false_alarm_15, dim="stack").transpose()
@@ -140,6 +151,7 @@ def get_plot_metrics(model_dfs, model_onsets, metrics_df_clim, onset_da_clim, co
 
     cmz_metrics = pd.concat([cmz_metrics.tail(1), cmz_metrics.iloc[:-1]])
 
+    # Format output dictionary
     mat_dict = {
         f"false_alarm_{str(day)}": false_alarm_15.values,
         f"far_cmz_mean_{str(day)}": np.array(cmz_metrics["cmz_far_pct"].values),
@@ -157,9 +169,22 @@ def get_plot_metrics(model_dfs, model_onsets, metrics_df_clim, onset_da_clim, co
 
     return mat_dict
 
-def get_climatological_dfs():
+
+def get_climatological_dfs(
+    config: dict[str, str],
+) -> dict[str, tuple[pd.DataFrame, xr.DataArray]]:
+    """
+    Get climatological dataframes and onset data arrays for all year ranges.
+
+    Args:
+        config: Dictionary of configuration parameters.
+
+    Returns:
+        Dictionary of climatological dataframes and onset data arrays.
+    """
     c_metrics = ClimatologyOnsetMetrics()
 
+    # Compute 15-day forecast data
     clim_df_15, clim_onset_15 = c_metrics.compute_climatology_baseline_multiple_years(
         years=config["years"],
         imd_folder=config["imd_folder"],
@@ -174,6 +199,7 @@ def get_climatological_dfs():
         mok_day=2,
     )
 
+    # Compute 15-day forecast data for the extended period
     clim_df_15_ex, clim_onset_15_ex = c_metrics.compute_climatology_baseline_multiple_years(
         years=np.concatenate((np.arange(1965, 1979), np.arange(2019, 2025))),
         imd_folder=config["imd_folder"],
@@ -188,6 +214,7 @@ def get_climatological_dfs():
         mok_day=2,
     )
 
+    # Compute 30-day forecast data
     clim_df_30, clim_onset_30 = c_metrics.compute_climatology_baseline_multiple_years(
         years=config["years"],
         imd_folder=config["imd_folder"],
@@ -202,6 +229,7 @@ def get_climatological_dfs():
         mok_day=2,
     )
 
+    # Compute 30-day forecast data for the extended period
     clim_df_30_ex, clim_onset_30_ex = c_metrics.compute_climatology_baseline_multiple_years(
         years=np.concatenate((np.arange(1965, 1979), np.arange(2019, 2025))),
         imd_folder=config["imd_folder"],
@@ -222,5 +250,22 @@ def get_climatological_dfs():
         "30_day": (clim_df_30, clim_onset_30),
         "30_day_ex": (clim_df_30_ex, clim_onset_30_ex),
     }
-    
+
     return output
+
+def save_data(
+    mat_dict: dict[str, np.ndarray],
+    output_dir: str,
+    save_path
+):
+    """
+    Save data to a .mat file.
+
+    Args:
+        mat_dict: Dictionary of data to save.
+        output_dir: Directory to save the data.
+        save_path: Path to save the data.
+    """
+    out_path = f"{output_dir}/{save_path}.mat"
+    savemat(out_path, mat_dict)
+    print("Saved to:", out_path)
