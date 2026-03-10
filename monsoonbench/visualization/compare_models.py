@@ -22,15 +22,20 @@ Expected spatial_metrics format (same as CLI/plot_spatial_metrics):
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import xarray as xr
-import os
 import seaborn as sns
+import xarray as xr
 
+from monsoonbench.metrics import (
+    ClimatologyOnsetMetrics,
+    ProbabilisticOnsetMetrics,
+)
 from monsoonbench.spatial.regions import (
     detect_resolution,
     get_cmz_polygon_coords,
@@ -44,6 +49,10 @@ __all__ = [
     "create_model_comparison_table",
     "plot_model_comparison_dual_axis",
     "compare_models",
+    "plot_probabilistic_model_comparison_dual_axis",
+    "create_probabilistic_model_comparison_table",
+    "compare_probabilistic_models",
+    "run_reliability_analysis",
 ]
 
 
@@ -324,34 +333,306 @@ def compare_models(
     )
     return comparison_df, fig, (ax_left, ax_right)
 
+
+def create_probabilistic_model_comparison_table(
+    base_config, model_info
+) -> pd.DataFrame:
+    """Create table with probabilistic scores for each model."""
+    pr = ProbabilisticOnsetMetrics()
+    cl = ClimatologyOnsetMetrics()
+
+    model_results = []
+
+    day_bins = get_day_bins(base_config["max_forecast_day"])
+
+    # Climatology Baseline
+    thresh_ds = xr.open_dataset(base_config["thres_file"])
+    clim_onset = cl.compute_climatological_onset_dataset(
+        base_config["imd_folder"],
+        thresh_ds["MWmean"],
+        years=None,
+        mok=base_config["mok"],
+    )
+
+    for name, info in model_info.items():
+        config = info["config"]
+        model_forecast_dir = info["model_forecast_dir"]
+        print(config)
+        print(model_forecast_dir)
+
+        baseline_df = cl.multi_year_climatological_forecast_obs_pairs(
+            clim_onset,
+            config["years"],
+            day_bins,
+            config["mem_num"],
+            model_forecast_dir,
+            max_forecast_day=config["max_forecast_day"],
+            mok=config["mok"],
+            file_pattern=config["file_pattern"],
+            date_filter_year=config["date_filter_year"],
+        )
+        brier_clim = cl.calculate_brier_score_climatology(baseline_df)
+        rps_clim = pr.calculate_rps(baseline_df)
+
+        print(f"Processing {name}...")
+        forecast_obs_df = pr.multi_year_forecast_obs_pairs(
+            config["years"],
+            model_forecast_dir,
+            config["imd_folder"],
+            config["thres_file"],
+            config["mem_num"],
+            config["max_forecast_day"],
+            day_bins,
+            mok=config["mok"],
+            file_pattern=config["file_pattern"],
+            date_filter_year=config["date_filter_year"],
+        )
+
+        brier_forecast = pr.calculate_brier_score(forecast_obs_df)
+        rps_forecast = pr.calculate_rps(forecast_obs_df)
+        auc_forecast = pr.calculate_auc(forecast_obs_df)
+        skill = pr.calculate_skill_scores(
+            brier_forecast, rps_forecast, brier_clim, rps_clim
+        )
+
+        # Store as a list of dicts to maintain sequence
+        model_results.append(
+            {
+                "model": name,
+                "fair_brier_skill_score": skill["fair_brier_skill_score"] * 100,
+                "fair_rps_skill_score": skill["fair_rps_skill_score"] * 100,
+                "auc_score": auc_forecast["auc"],
+            }
+        )
+
+    # Create DataFrame
+    comparison_df = pd.DataFrame(model_results).set_index("model")
+    return comparison_df
+
+
+def plot_probabilistic_model_comparison_dual_axis(
+    comparison_df: pd.DataFrame, title: str | None = None
+) -> None:
+    """Plots BSS and RPSS and AUC in dual axis comparison graph."""
+    # Reverse to keep first model at the top
+    df_plot = comparison_df.iloc[::-1]
+    models = df_plot.index.tolist()
+    y_pos = np.arange(len(models))
+
+    # Increase bar height to fill more vertical space
+    height = 0.35
+
+    # Adjust figsize to be more balanced
+    fig_width = 8.0
+    fig_height = max(6.0, len(models) * 1.2)
+
+    fig, ax_bottom = plt.subplots(figsize=(fig_width, fig_height))
+    ax_top = ax_bottom.twiny()
+
+    # Colors
+    color_bss = "#a6cee3"  # Light Blue
+    color_rpss = "#1f78b4"  # Dark Blue
+    color_auc = "#ff7f0e"  # Orange
+
+    # Bottom Axis: BSS & RPSS
+    ax_bottom.barh(
+        y_pos + height / 2,
+        df_plot["fair_brier_skill_score"],
+        height,
+        label="BSS (%)",
+        color=color_bss,
+        edgecolor="black",
+        linewidth=0.8,
+    )
+    ax_bottom.barh(
+        y_pos - height / 2,
+        df_plot["fair_rps_skill_score"],
+        height,
+        label="RPSS (%)",
+        color=color_rpss,
+        edgecolor="black",
+        linewidth=0.8,
+    )
+
+    # Top Axis: AUC
+    ax_top.barh(
+        y_pos,
+        df_plot["auc_score"],
+        height / 2,
+        label="AUC",
+        color=color_auc,
+        alpha=0.6,
+        edgecolor="black",
+        linewidth=0.5,
+    )
+
+    # Axis Formatting
+    ax_bottom.set_xlim(-20, 50)
+    ax_bottom.set_xlabel("Skill Score (BSS/RPSS) %", fontweight="bold")
+    ax_bottom.set_yticks(y_pos)
+    ax_bottom.set_yticklabels(models, fontsize=10)
+    ax_bottom.axvline(0, color="navy", linewidth=1, alpha=0.4)
+
+    ax_top.set_xlim(0.8, 1.0)
+    ax_top.set_xlabel("AUC Score", color=color_auc, fontweight="bold")
+    ax_top.tick_params(axis="x", colors=color_auc)
+
+    lines_b, labels_b = ax_bottom.get_legend_handles_labels()
+    lines_t, labels_t = ax_top.get_legend_handles_labels()
+    ax_bottom.legend(
+        lines_b + lines_t,
+        labels_b + labels_t,
+        loc="upper right",
+        bbox_to_anchor=(1, 0.15),
+        frameon=True,
+    )
+
+    if title:
+        plt.title(title, pad=45, fontsize=12, fontweight="bold")
+
+    plt.tight_layout()
+
+
+def compare_probabilistic_models(base_config, model_info) -> pd.DataFrame:
+    """Create probabilistic score table and plot dual comparison graph."""
+    comparison_df = create_probabilistic_model_comparison_table(base_config, model_info)
+    plot_probabilistic_model_comparison_dual_axis(
+        comparison_df=comparison_df, title="Probabilistic Skill"
+    )
+    # Save with model name and forecast days
+    figure_filename = f"{base_config["save_dir"]}probabilistic_comparison_graph.png"
+    plt.savefig(figure_filename, dpi=300, bbox_inches="tight")
+    plt.show()
+    plt.close()
+    print(f"Figure saved as '{figure_filename}'")
+    return comparison_df
+
+
 def get_target_bins(brier_forecast, brier_climatology):
     """Extract and sort target bins"""
-    all_forecast_bins = set(brier_forecast['bin_fair_brier_scores'].keys())
-    all_clim_bins = set(brier_climatology['bin_fair_brier_scores'].keys())
+    all_forecast_bins = set(brier_forecast["bin_fair_brier_scores"].keys())
+    all_clim_bins = set(brier_climatology["bin_fair_brier_scores"].keys())
     common_bins = all_forecast_bins.intersection(all_clim_bins)
     target_bins = []
     for bin_label in common_bins:
-        if (bin_label.startswith('Days ') and 
-            not bin_label.startswith('After') and 
-            not bin_label.startswith('Before')):
+        if (
+            bin_label.startswith("Days ")
+            and not bin_label.startswith("After")
+            and not bin_label.startswith("Before")
+        ):
             target_bins.append(bin_label)
-    
+
     def extract_day_range(bin_label):
-        if 'Days ' in bin_label:
+        if "Days " in bin_label:
             try:
-                day_part = bin_label.replace('Days ', '').split('-')[0]
+                day_part = bin_label.replace("Days ", "").split("-")[0]
                 return int(day_part)
-            except:
+            except Exception:
                 return 999
         return 999
-    
+
     return sorted(target_bins, key=extract_day_range)
 
-def create_heatmap(skill_results, auc_forecast, auc_climatology, 
-                  brier_forecast, brier_climatology, model_name, max_forecast_day, save_dir=None):
-    """
-    Create and save skill score heatmap
-    
+
+def create_heatmap(config):
+    heatmap_data = generate_heatmap_data(config)
+    create_heatmap_visual(
+        heatmap_data,
+        config["model_name"],
+        config["max_forecast_day"],
+        save_dir=str(config["save_dir"]),
+    )
+
+
+def generate_heatmap_data(config):
+    # Initialize Metric Computation Classes
+    pr = ProbabilisticOnsetMetrics()
+    cl = ClimatologyOnsetMetrics()
+
+    # Set day bins
+    day_bins = get_day_bins(config["max_forecast_day"])
+
+    # Print config metadata
+    print("=" * 60)
+    print("S2S MONSOON ONSET SKILL SCORE ANALYSIS")
+    print("=" * 60)
+    print(f"Model: {config['model_name']}")
+    print(f"Years: {config['years']}")
+    print(f"Max forecast day: {config['max_forecast_day']}")
+    print(f"Day bins: {day_bins}")
+    print(f"MOK filter: {config['mok']} ({'June 2nd' if config['mok'] else 'May 1st'})")
+    if config["save_dir"]:
+        print(f"Output directory: {config['save_dir']}")
+    else:
+        print("Output directory: current directory")
+    print("=" * 60)
+
+    # Create forecast observation dataframe
+    print("\n1. Processing forecast model...")
+    forecast_obs_df = pr.multi_year_forecast_obs_pairs(
+        config["years"],
+        config["model_forecast_dir"],
+        config["imd_folder"],
+        config["thres_file"],
+        config["mem_num"],
+        config["max_forecast_day"],
+        day_bins,
+        date_filter_year=config["date_filter_year"],
+        file_pattern=config["file_pattern"],
+        mok=config["mok"],
+    )
+
+    # Calculate brier and AUC forecast scores from observations
+    print("\n2. Calculating brier and AUC forecast scores...")
+    brier_forecast = pr.calculate_brier_score(forecast_obs_df)
+    rps_forecast = pr.calculate_rps(forecast_obs_df)
+    auc_forecast = pr.calculate_auc(forecast_obs_df)
+
+    print("\n3. Computing climatological dataset...")
+    thresh_ds = xr.open_dataset(config["thres_file"])
+    thresh_slice = thresh_ds["MWmean"]
+    clim_onset = cl.compute_climatological_onset_dataset(
+        config["imd_folder"], thresh_slice, years=None, mok=config["mok"]
+    )
+
+    print("\n4. Processing climatological forecasts...")
+    climatology_obs_df = cl.multi_year_climatological_forecast_obs_pairs(
+        clim_onset,
+        config["years"],
+        day_bins,
+        config["mem_num"],
+        config["model_forecast_dir"],
+        date_filter_year=config["date_filter_year"],
+        file_pattern=config["file_pattern"],
+        max_forecast_day=config["max_forecast_day"],
+        mok=config["mok"],
+    )
+
+    print("\n5. Calculating climatology scores...")
+    brier_climatology = cl.calculate_brier_score_climatology(climatology_obs_df)
+    rps_climatology = pr.calculate_rps(climatology_obs_df)
+    auc_climatology = cl.calculate_auc_climatology(climatology_obs_df)
+
+    # Calculate skill scores
+    print("\n6. Calculating skill scores...")
+    skill_results = pr.calculate_skill_scores(
+        brier_forecast, rps_forecast, brier_climatology, rps_climatology
+    )
+
+    heatmap_data = {
+        "skill_results": skill_results,
+        "auc_forecast": auc_forecast,
+        "auc_climatology": auc_climatology,
+        "brier_forecast": brier_forecast,
+        "brier_climatology": brier_climatology,
+    }
+
+    return heatmap_data
+
+
+def create_heatmap_visual(heatmap_data, model_name, max_forecast_day, save_dir=None):
+    """Create and save skill score heatmap
+
     Parameters:
     -----------
     ... (other parameters)
@@ -359,187 +640,266 @@ def create_heatmap(skill_results, auc_forecast, auc_climatology,
         Directory to save the heatmap. If None, saves in current directory.
         If directory doesn't exist, it will be created.
     """
-    
+    skill_results = heatmap_data.get("skill_results")
+    auc_forecast = heatmap_data.get("auc_forecast")
+    auc_climatology = heatmap_data.get("auc_climatology")
+    brier_forecast = heatmap_data.get("brier_forecast")
+    brier_climatology = heatmap_data.get("brier_climatology")
+
     # Handle save directory
     if save_dir is not None:
         # Create directory if it doesn't exist
-        os.makedirs(save_dir, exist_ok=True)
-        
+        Path(save_dir).mkdir(parents=True, exist_ok=True)
+
         # Ensure save_dir ends with a path separator for proper joining
         if not save_dir.endswith(os.sep):
             save_dir += os.sep
     else:
         save_dir = ""
-    
+
     target_bins = get_target_bins(brier_forecast, brier_climatology)
-    
+
     # Prepare data
-    bss_values = [skill_results['bin_fair_brier_skill_scores'].get(bin_name, np.nan) for bin_name in target_bins]
-    auc_values = [auc_forecast['bin_auc_scores'].get(bin_name, np.nan) for bin_name in target_bins]
-    auc_clim_values = [auc_climatology['bin_auc_scores'].get(bin_name, np.nan) for bin_name in target_bins]
-    
-    bin_labels_short = [bin_name.replace('Days ', '') for bin_name in target_bins]
-    
+    bss_values = [
+        skill_results["bin_fair_brier_skill_scores"].get(bin_name, np.nan)
+        for bin_name in target_bins
+    ]
+    auc_values = [
+        auc_forecast["bin_auc_scores"].get(bin_name, np.nan) for bin_name in target_bins
+    ]
+    auc_clim_values = [
+        auc_climatology["bin_auc_scores"].get(bin_name, np.nan)
+        for bin_name in target_bins
+    ]
+
+    bin_labels_short = [bin_name.replace("Days ", "") for bin_name in target_bins]
+
     # Create figure
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 4))
-    
+
     # Plot 1: BSS heatmap
     bss_data = np.array(bss_values).reshape(1, -1)
-    sns.heatmap(bss_data*100, 
-                annot=True, 
-                fmt='.2g', 
-                cmap='RdBu',
-                vmin=-40, vmax=40,
-                center=0,
-                xticklabels=bin_labels_short,
-                cbar_kws={"orientation": "horizontal"},
-                ax=ax1,
-                annot_kws={'size': 12, 'weight': 'bold'})
-    
-    ax1.set_xlabel('')
+    sns.heatmap(
+        bss_data * 100,
+        annot=True,
+        fmt=".2g",
+        cmap="RdBu",
+        vmin=-40,
+        vmax=40,
+        center=0,
+        xticklabels=bin_labels_short,
+        cbar_kws={"orientation": "horizontal"},
+        ax=ax1,
+        annot_kws={"size": 12, "weight": "bold"},
+    )
+
+    ax1.set_xlabel("")
     ax1.set_xticklabels([])
-    ax1.set_ylabel('BSS (%)', fontsize=14)
+    ax1.set_ylabel("BSS (%)", fontsize=14)
     ax1.set_yticklabels([])
-    
+
     # Plot 2: AUC heatmap
     auc_data = np.array(auc_values).reshape(1, -1)
-    sns.heatmap(auc_data, 
-                annot=False,
-                cmap='Blues',
-                vmin=0.7, vmax=1.0,
-                xticklabels=bin_labels_short,
-                cbar_kws={"orientation": "horizontal"},
-                ax=ax2)
-    
+    sns.heatmap(
+        auc_data,
+        annot=False,
+        cmap="Blues",
+        vmin=0.5,
+        vmax=1.0,
+        xticklabels=bin_labels_short,
+        cbar_kws={"orientation": "horizontal"},
+        ax=ax2,
+    )
+
     # Add custom annotations
     for i, (auc_val, auc_clim_val) in enumerate(zip(auc_values, auc_clim_values)):
         if not np.isnan(auc_val) and not np.isnan(auc_clim_val):
-            ax2.text(i + 0.5, 0.5, f'{auc_val:.2g}', 
-                    ha='center', va='center', 
-                    fontsize=12, fontweight='bold', color='black')
-            ax2.text(i + 0.5, 0.2, f'({auc_clim_val:.2g})', 
-                    ha='center', va='center', 
-                    fontsize=8, color='darkblue')
+            ax2.text(
+                i + 0.5,
+                0.5,
+                f"{auc_val:.2g}",
+                ha="center",
+                va="center",
+                fontsize=12,
+                fontweight="bold",
+                color="black",
+            )
+            ax2.text(
+                i + 0.5,
+                0.2,
+                f"({auc_clim_val:.2g})",
+                ha="center",
+                va="center",
+                fontsize=8,
+                color="darkblue",
+            )
         elif not np.isnan(auc_val):
-            ax2.text(i + 0.5, 0.5, f'{auc_val:.2g}', 
-                    ha='center', va='center', 
-                    fontsize=12, fontweight='bold', color='black')
-    
-    ax2.set_xlabel('Forecast Day Bins', fontsize=14)
-    ax2.set_ylabel('AUC', fontsize=14)
+            ax2.text(
+                i + 0.5,
+                0.5,
+                f"{auc_val:.2g}",
+                ha="center",
+                va="center",
+                fontsize=12,
+                fontweight="bold",
+                color="black",
+            )
+
+    ax2.set_xlabel("Forecast Day Bins", fontsize=14)
+    ax2.set_ylabel("AUC", fontsize=14)
     ax2.set_yticklabels([])
-    
+
     plt.tight_layout()
-    
+
     # Save with model name and forecast days
-    figure_filename = f'{save_dir}skill_scores_heatmap_{model_name}_{max_forecast_day}day.png'
-    plt.savefig(figure_filename, dpi=300, bbox_inches='tight')
-    plt.show() #Can delete for non-notebook vis
+    figure_filename = (
+        f"{save_dir}skill_scores_heatmap_{model_name}_{max_forecast_day}day.png"
+    )
+    plt.savefig(figure_filename, dpi=300, bbox_inches="tight")
+    plt.show()
     plt.close()
-    
+
     print(f"Figure saved as '{figure_filename}'")
-    
+
     return figure_filename
 
 
-def plot_reliability_diagram(forecast_obs_pairs_multi, years, max_forecast_day, save_path=None):
-    """Plot reliability diagram from forecast-observation pairs."""
-    
-    n_bins = 10
+def get_day_bins(max_days):
+    """Helper to generate bins based on forecast window."""
+    if max_days == 15:
+        return [(1, 5), (6, 10), (11, 15)]
+    if max_days == 30:
+        return [(1, 5), (6, 10), (11, 15), (16, 20), (21, 25), (26, 30)]
+    raise ValueError(f"Unsupported max_forecast_day: {max_days}")
+
+
+def calculate_reliability_metrics(df, n_bins=10):
+    """Logic preserved: calculates reliability, frequency, and error bars per bin."""
     bin_edges = np.linspace(0, 1, n_bins + 1)
-    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
-
-    reliability_y = np.zeros(n_bins)
-    mean_forecast_prob = np.zeros(n_bins)
-    frequency = np.zeros(n_bins)
-    n_forecasts_array = np.zeros(n_bins)
-
-    print("\nReliability Analysis:")
-    print("Bin Range\t\tN_Forecasts\tMean_Forecast_Prob\tReliability\tFrequency\tError_Bar")
-    print("-" * 90)
-
-    results_for_csv = []
+    results = []
 
     for i in range(n_bins):
+        # Precise bin logic preserved: i=0 is inclusive, others are (lower, upper]
         if i == 0:
-            in_bin = ((forecast_obs_pairs_multi['predicted_prob'] >= bin_edges[i]) & 
-                    (forecast_obs_pairs_multi['predicted_prob'] <= bin_edges[i+1]))
+            in_bin = df["predicted_prob"].between(bin_edges[i], bin_edges[i + 1])
         else:
-            in_bin = ((forecast_obs_pairs_multi['predicted_prob'] > bin_edges[i]) & 
-                    (forecast_obs_pairs_multi['predicted_prob'] <= bin_edges[i+1]))
-        
-        n_forecasts = in_bin.sum()
-        n_forecasts_array[i] = n_forecasts
-        
-        if n_forecasts > 0:
-            mean_forecast_prob[i] = forecast_obs_pairs_multi.loc[in_bin, 'predicted_prob'].mean()
-            reliability_y[i] = forecast_obs_pairs_multi.loc[in_bin, 'observed_onset'].mean()
-            frequency[i] = n_forecasts / len(forecast_obs_pairs_multi)
-            error_bar = np.sqrt(reliability_y[i] * (1 - reliability_y[i]) / n_forecasts)
-        else:
-            mean_forecast_prob[i] = np.nan
-            reliability_y[i] = np.nan
-            frequency[i] = 0
-            error_bar = np.nan
-        
-        bin_range = f"{bin_edges[i]:.1f}-{bin_edges[i+1]:.1f}"
-        
-        print(f"{bin_range}\t\t{n_forecasts}\t\t{mean_forecast_prob[i]:.3f}\t\t\t{reliability_y[i]:.3f}\t\t{frequency[i]:.3f}\t\t{error_bar:.3f}")
-        
-        results_for_csv.append({
-            'Bin_Range': bin_range,
-            'N_Forecasts': n_forecasts,
-            'Mean_Forecast_Prob': round(mean_forecast_prob[i], 3) if not np.isnan(mean_forecast_prob[i]) else np.nan,
-            'Observed_Frequency': round(reliability_y[i], 3) if not np.isnan(reliability_y[i]) else np.nan,
-            'Frequency': round(frequency[i], 3),
-            'Error_Bar': round(error_bar, 3) if not np.isnan(error_bar) else np.nan
-        })
+            in_bin = (df["predicted_prob"] > bin_edges[i]) & (
+                df["predicted_prob"] <= bin_edges[i + 1]
+            )
 
-    results_df = pd.DataFrame(results_for_csv)
+        n_fcst = in_bin.sum()
 
-    error_bars = np.sqrt(reliability_y * (1 - reliability_y) / n_forecasts_array)
-    error_bars = np.where(n_forecasts_array > 0, error_bars, 0)
+        # Calculate statistics (Matches your original math)
+        mean_prob = df.loc[in_bin, "predicted_prob"].mean() if n_fcst > 0 else np.nan
+        obs_freq = df.loc[in_bin, "observed_onset"].mean() if n_fcst > 0 else np.nan
+        rel_freq = n_fcst / len(df)
+        err = np.sqrt(obs_freq * (1 - obs_freq) / n_fcst) if n_fcst > 0 else np.nan
 
-    fig, ax = plt.subplots(1, 1, figsize=(10, 8))
+        results.append(
+            {
+                "Bin_Range": f"{bin_edges[i]:.1f}-{bin_edges[i+1]:.1f}",
+                "N_Forecasts": n_fcst,
+                "Mean_Forecast_Prob": round(mean_prob, 3)
+                if not np.isnan(mean_prob)
+                else np.nan,
+                "Observed_Frequency": round(obs_freq, 3)
+                if not np.isnan(obs_freq)
+                else np.nan,
+                "Frequency": round(rel_freq, 3),
+                "Error_Bar": round(err, 3) if not np.isnan(err) else np.nan,
+                "bin_center": (bin_edges[i] + bin_edges[i + 1]) / 2,  # For plotting
+            }
+        )
 
-    valid_bins = ~np.isnan(reliability_y) & ~np.isnan(mean_forecast_prob)
-    ax.errorbar(mean_forecast_prob[valid_bins], reliability_y[valid_bins], 
-                yerr=error_bars[valid_bins], fmt='o-', 
-                color='blue', linewidth=2, markersize=8, capsize=5, capthick=2,
-                label='Reliability')
+    return pd.DataFrame(results)
 
-    ax.plot([0, 1], [0, 1], 'k--', linewidth=1, label='Perfect Reliability')
 
+def plot_reliability_diagram(metrics_df, config):
+    """Generate and save the reliability diagram."""
+    fig, ax = plt.subplots(figsize=(10, 8))
+
+    # Reliability Curve
+    valid = metrics_df.dropna(subset=["Observed_Frequency"])
+    ax.errorbar(
+        valid["Mean_Forecast_Prob"],
+        valid["Observed_Frequency"],
+        yerr=valid["Error_Bar"],
+        fmt="o-",
+        color="blue",
+        lw=2,
+        markersize=8,
+        capsize=5,
+        capthick=2,
+        label="Reliability",
+    )
+
+    # Reference Line
+    ax.plot([0, 1], [0, 1], "k--", lw=1, label="Perfect Reliability")
+
+    # Frequency Bar Chart (Secondary Axis)
     ax2 = ax.twinx()
-    ax2.set_yscale('log')
-    ax2.bar(bin_centers, frequency, width=0.08, alpha=0.3, color='gray', label='Frequency')
-    max_freq = max(frequency)
-    min_freq = min([f for f in frequency if f > 0]) if any(f > 0 for f in frequency) else 1e-4
-    ax2.set_ylim(min_freq * 0.5, max_freq * 2)
-    ax2.set_ylabel('Forecast frequency', fontsize=12)
+    ax2.bar(
+        metrics_df["bin_center"],
+        metrics_df["Frequency"],
+        width=0.08,
+        alpha=0.3,
+        color="gray",
+        label="Frequency",
+    )
+    ax2.set_yscale("log")
+    ax2.set_ylim(0.001, 1)
+    ax2.set_ylabel("Forecast frequency", fontsize=12)
 
-    ax.set_xlabel('Forecast Probability', fontsize=12)
-    ax.set_ylabel('Observed Frequency', fontsize=12)
-
-    if len(years) > 1:
-        year_str = f"{min(years)}-{max(years)}"
-    else:
-        year_str = str(years[0])
-
-    ax.grid(True, alpha=0.3)
+    # Styling matches original
+    ax.set_xlabel("Forecast Probability", fontsize=12)
+    ax.set_ylabel("Observed Frequency", fontsize=12)
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
-    
-    # Save figure if save_path provided
-    if save_path:
-        os.makedirs(save_path, exist_ok=True)
-        fig_save_path = os.path.join(save_path, f'reliability_{max_forecast_day}day.png')
-        fig.savefig(fig_save_path, dpi=600, bbox_inches='tight')
-        print(f"Figure saved to: {fig_save_path}")
-    
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc="upper left")
+
+    # Save logic
+    if config.get("save_dir"):
+        Path(config["save_dir"]).mkdir(parents=True, exist_ok=True)
+        path = os.path.join(
+            config["save_dir"], f"reliability_{config['max_forecast_day']}day.png"
+        )
+        plt.savefig(path, dpi=600, bbox_inches="tight")
+        print(f"Figure saved to: {path}")
+
     plt.tight_layout()
     plt.show()
-    
-    return fig, ax, results_df
 
 
+def run_reliability_analysis(config) -> pd.DataFrame:
+    """Main function to run the full monsoon onset reliability pipeline."""
+    pr = ProbabilisticOnsetMetrics()
+    day_bins = get_day_bins(config["max_forecast_day"])
+
+    # Print Metadata
+    print("=" * 60 + "\nS2S MONSOON ONSET SKILL SCORE ANALYSIS\n" + "=" * 60)
+    print(f"Model: {config['model_name']} | Years: {config['years']}")
+
+    # Process Data
+    forecast_obs_df = pr.multi_year_forecast_obs_pairs(
+        config["years"],
+        config["model_forecast_dir"],
+        config["imd_folder"],
+        config["thres_file"],
+        config["mem_num"],
+        config["max_forecast_day"],
+        day_bins,
+        date_filter_year=config["date_filter_year"],
+        file_pattern=config["file_pattern"],
+        mok=config["mok"],
+    )
+
+    # Calculate & Display Table
+    metrics_df = calculate_reliability_metrics(forecast_obs_df)
+    print("\nReliability Analysis Results:")
+    print(metrics_df.drop(columns=["bin_center"]))  # Hide plotting helper column
+
+    # Plot
+    plot_reliability_diagram(metrics_df, config)
+
+    return metrics_df
