@@ -123,7 +123,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
         if "sample" in ds.dims:
             ds = ds.rename({"sample": "member"})
         else:
-            if 'member' not in ds.dims:
+            if "member" not in ds.dims:
                 ds = ds.expand_dims(member=np.arange(4))
             else:
                 # If it exists but you only want a specific number of members (from your args)
@@ -599,7 +599,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
                 # Get observed onset date for this location
                 try:
                     obs_onset = onset_da.isel(lat=loc_idx, lon=loc_idx).values
-                except:
+                except Exception:
                     skipped_no_obs += len(members)
                     continue
 
@@ -701,7 +701,6 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
             )
         else:
             print("✓ All init_time-lat-lon-member combinations are unique")
-        0
         return onset_df
 
     # ADD TO REPO
@@ -745,7 +744,8 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
                 lat_idx = np.where(np.abs(onset_da.lat.values - lat) < 0.01)[0][0]
                 lon_idx = np.where(np.abs(onset_da.lon.values - lon) < 0.01)[0][0]
                 obs_date = onset_da.isel(lat=lat_idx, lon=lon_idx).values
-            except:
+            except Exception as e:
+                print(f"Error {e}")
                 continue
 
             # Skip if no observed onset
@@ -774,7 +774,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
                     members_with_onset_in_bin = 0
                     total_members = len(group)
 
-                    for member_idx, member_row in group.iterrows():
+                    for _member_idx, member_row in group.iterrows():
                         member_onset_day = member_row["onset_day"]
 
                         # Member predicts "after day X" if onset_day is NaN or > max_forecast_day
@@ -803,7 +803,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
                     members_with_onset_in_bin = 0
                     total_members = len(group)
 
-                    for member_idx, member_row in group.iterrows():
+                    for _member_idx, member_row in group.iterrows():
                         member_onset_day = member_row["onset_day"]
 
                         if (
@@ -1033,7 +1033,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
                     f"Year {year} completed: {len(forecast_obs_pairs)} forecast-observation pairs"
                 )
 
-            except Exception as e:
+            except Exception:
                 print(f"Error processing year {year}:")
                 import traceback
                 traceback.print_exc() # This reveals the REAL line number and error
@@ -1252,7 +1252,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
         rps_values = []
         fair_rps_values = []
 
-        for (init_time, lat, lon), group in forecast_groups:
+        for (_init_time, _lat, _lon), group in forecast_groups:
             # Sort by bin_index to ensure proper ordering
             group_sorted = group.sort_values("bin_index")
 
@@ -1375,7 +1375,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
                 try:
                     day_part = bin_label.replace("Days ", "").split("-")[0]
                     return int(day_part)
-                except:
+                except Exception:
                     return 999  # Put unparseable bins at the end
             return 999
 
@@ -1438,7 +1438,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
 
         # Fair RPS Skill Score row
         fair_rpss_row = f"{'Fair RPS Skill Score':<30} {fair_rpss_overall:<18.4f}"
-        for bin_name in target_bins:
+        for _ in range(len(target_bins)):
             fair_rpss_row += f" {'N/A':<12}"  # RPS is overall only
         print(fair_rpss_row)
 
