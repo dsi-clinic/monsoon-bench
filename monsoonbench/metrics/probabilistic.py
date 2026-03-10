@@ -123,7 +123,11 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
         if "sample" in ds.dims:
             ds = ds.rename({"sample": "member"})
         else:
-            ds = ds.expand_dims(member=np.arange(4))
+            if 'member' not in ds.dims:
+                ds = ds.expand_dims(member=np.arange(4))
+            else:
+                # If it exists but you only want a specific number of members (from your args)
+                ds = ds.isel(member=slice(0, mem_num))
 
         # Find common dates between desired dates and available dates
         available_init_times = pd.to_datetime(ds.init_time.values)
@@ -581,7 +585,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
         for t_idx, init_time in enumerate(init_times):
             if t_idx % 5 == 0:
                 print(
-                    f"Processing init time {t_idx+1}/{len(init_times)}: {pd.to_datetime(init_time).strftime('%Y-%m-%d')}"
+                    f"Processing init time {t_idx + 1}/{len(init_times)}: {pd.to_datetime(init_time).strftime('%Y-%m-%d')}"
                 )
 
             init_date = pd.to_datetime(init_time)
@@ -971,9 +975,9 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
 
         # Process each year
         for year in years:
-            print(f"\n{'='*50}")
+            print(f"\n{'=' * 50}")
             print(f"Processing year {year}")
-            print(f"{'='*50}")
+            print(f"{'=' * 50}")
 
             try:
                 # Load model and observation data
@@ -1030,13 +1034,15 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
                 )
 
             except Exception as e:
-                print(f"Error processing year {year}: {e}")
+                print(f"Error processing year {year}:")
+                import traceback
+                traceback.print_exc() # This reveals the REAL line number and error
                 continue
 
         # Combine all years
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print("Combining all years")
-        print(f"{'='*50}")
+        print(f"{'=' * 50}")
 
         if not all_forecast_obs_pairs:
             raise ValueError("No data was successfully processed for any year")
