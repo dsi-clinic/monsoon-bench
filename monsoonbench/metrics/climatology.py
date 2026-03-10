@@ -4,7 +4,6 @@ This module provides the ClimatologyOnsetMetrics class for computing
 climatological baseline metrics for monsoon onset prediction.
 """
 
-import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -145,9 +144,9 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
             file_patterns = ["data_*.nc", "*.nc"]
             
             for pattern in file_patterns:
-                files = Path.glob(os.path.join(imd_folder, pattern))
+                files = Path(imd_folder).glob(pattern)
                 for file in files:
-                    filename = Path.name(file)
+                    filename = Path(file).name
                     # Extract year from filename
                     if filename.startswith("data_"):
                         year_str = filename.replace("data_", "").replace(".nc", "")
