@@ -502,14 +502,12 @@ def plot_spatial_metrics(
 
 
 def datetime_to_day(dt: np.datetime64) -> int:
-    """
-    Convert a numpy.datetime64 object to day-of-year index (Jan 1 = 0).
-    """
+    """Convert a numpy.datetime64 object to day-of-year index (Jan 1 = 0)."""
     # Ensure day precision
-    dt = dt.astype('datetime64[D]')
+    dt = dt.astype("datetime64[D]")
     
     # Get start of year
-    start_of_year = dt.astype('datetime64[Y]').astype('datetime64[D]')
+    start_of_year = dt.astype("datetime64[Y]").astype("datetime64[D]")
     
     # Compute difference in days
     day_index = (dt - start_of_year).astype(int)
@@ -517,8 +515,8 @@ def datetime_to_day(dt: np.datetime64) -> int:
     return int(day_index)
 
 def day_to_daystr(day: int, year: int) -> str:
-    """
-    Convert day-of-year index (Jan 1 = 0) into string like 'Jan 1'.
+    """Convert day-of-year index (Jan 1 = 0) into string like 'Jan 1'.
+
     Works on Windows, Linux, macOS.
     """
     start = np.datetime64(f"{year}-01-01")
@@ -528,12 +526,12 @@ def day_to_daystr(day: int, year: int) -> str:
 
     return f"{py_date.strftime('%b')} {py_date.day}"
 
-def compare_onset_map(clim_onset, model_onset, model_name, year, province_num, rainfall_path, shpfile_path):
-    """Generates a 2x3 grid of rainfall data maps.
+def compare_onset_map(clim_onset, model_onset, model_name, year, province_num, rainfall_path, shpfile_path) -> tuple[plt.Figure, np.ndarray]:
+    """Generate a 2x3 grid of rainfall data maps.
+
     Row 1: Climatological onset date, +5 days, +10 days
     Row 2: Model predicted onset date, +5 days, +10 days
     """
-
     # --- Extract data ---
     non_zero_coords = []
     for i in range(clim_onset.shape[0]):
