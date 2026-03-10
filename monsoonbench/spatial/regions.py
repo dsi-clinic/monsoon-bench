@@ -88,8 +88,8 @@ def get_cmz_polygon_coords(resolution: float) -> tuple[np.ndarray, np.ndarray] |
 
     # 4-degree resolution CMZ
     if abs(resolution - 4.0) < RESOLUTION_TOLERANCE:
-        polygon_lon = np.array([84, 76, 76, 72, 72, 80, 80, 84, 84, 88, 88, 84, 84])
-        polygon_lat = np.array([16, 16, 20, 20, 28, 28, 24, 24, 20, 20, 16, 16, 16])
+        polygon_lon = np.array([72, 80, 84, 84, 76, 72, 72])
+        polygon_lat = np.array([28, 28, 24, 20, 20, 24, 28])
         return polygon_lon, polygon_lat
 
     # Resolution not supported

@@ -383,7 +383,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
 
                         # Apply MOK filtering if requested
                         if mok:
-                            if clim_onset_date.date() > mok_date.date():
+                            if clim_onset_date.date() >= mok_date.date():
                                 # Valid onset after MOK date
                                 onset_date = clim_onset_date
                                 onsets_forecasted += 1

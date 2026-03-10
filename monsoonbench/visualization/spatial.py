@@ -46,7 +46,9 @@ def calculate_cmz_averages(
 
     lon_grid, lat_grid = np.meshgrid(lons, lats)
     points = np.column_stack((lon_grid.ravel(), lat_grid.ravel()))
-    inside_polygon = polygon_path.contains_points(points).reshape(lon_grid.shape)
+    inside_polygon = polygon_path.contains_points(
+        points, radius=-.01 #Negative radius to include border points
+    ).reshape(lon_grid.shape)
 
     values_inside = data_array.to_numpy()[inside_polygon]
 
@@ -496,4 +498,176 @@ def plot_spatial_metrics(
             f"\nNote: CMZ averages not calculated (resolution {lat_diff:.1f}° not supported)"
         )
 
+    return fig, axes
+
+
+def datetime_to_day(dt: np.datetime64) -> int:
+    """
+    Convert a numpy.datetime64 object to day-of-year index (Jan 1 = 0).
+    """
+    # Ensure day precision
+    dt = dt.astype('datetime64[D]')
+    
+    # Get start of year
+    start_of_year = dt.astype('datetime64[Y]').astype('datetime64[D]')
+    
+    # Compute difference in days
+    day_index = (dt - start_of_year).astype(int)
+    
+    return int(day_index)
+
+def day_to_daystr(day: int, year: int) -> str:
+    """
+    Convert day-of-year index (Jan 1 = 0) into string like 'Jan 1'.
+    Works on Windows, Linux, macOS.
+    """
+    start = np.datetime64(f"{year}-01-01")
+    date = start + np.timedelta64(day, "D")
+
+    py_date = date.astype("datetime64[D]").astype(object)
+
+    return f"{py_date.strftime('%b')} {py_date.day}"
+
+def compare_onset_map(clim_onset, model_onset, model_name, year, province_num, rainfall_path, shpfile_path):
+    """Generates a 2x3 grid of rainfall data maps.
+    Row 1: Climatological onset date, +5 days, +10 days
+    Row 2: Model predicted onset date, +5 days, +10 days
+    """
+
+    # --- Extract data ---
+    non_zero_coords = []
+    for i in range(clim_onset.shape[0]):
+        for j in range(clim_onset.shape[1]):
+            if not np.isnan(clim_onset.values[i, j]):
+                non_zero_coords.append((i, j))
+
+    model_onset = model_onset[model_name][year]
+
+    i, j = non_zero_coords[province_num]
+    clim_onset_date = int(clim_onset.values[i, j])
+    model_onset_date = datetime_to_day(model_onset.values[i, j])
+
+    rain_data = xr.open_dataset(f"{rainfall_path}/4p0/{year}.nc")
+    lats = rain_data["lat"].values
+    lons = rain_data["lon"].values
+
+    # Define Core Monsoon Zone bounding polygon
+    polygon1_lon = np.array([86, 74, 74, 70, 70, 82, 82, 86, 86])
+    polygon1_lat = np.array([18, 18, 22, 22, 30, 30, 26, 26, 18])
+
+    # Create cell-edge arrays for pcolormesh
+    lon_edges = np.concatenate([lons - (lons[1] - lons[0]) / 2, [lons[-1] + (lons[1] - lons[0]) / 2]])
+    lat_edges = np.concatenate([lats - (lats[1] - lats[0]) / 2, [lats[-1] + (lats[1] - lats[0]) / 2]])
+    LON_edges, LAT_edges = np.meshgrid(lon_edges, lat_edges)
+
+    # Style parameters
+    map_lw = 0.75
+    polygon_lw = 1.25
+    panel_linewidth = 0.5
+    tick_length = 3
+    tick_width = 0.8
+    txt_fsize = 10
+    vmin, vmax = 0, 15
+
+    india_boundaries = get_india_outline(shpfile_path)
+
+    offsets = [0, 5, 10]
+
+    # --- Helper function ---
+    def plot_rainfall_panel(ax, rainfall, lons, lats, title, show_ylabel=False, highlight_coord=None):
+        """Plot a single rainfall panel with India outline, CMZ polygon, and annotations."""
+        masked = np.ma.masked_invalid(rainfall)
+        pcm = ax.pcolormesh(LON_edges, LAT_edges, masked, cmap="OrRd", vmin=vmin, vmax=vmax, shading="flat")
+
+        # India outline
+        for boundary in india_boundaries:
+            blon, blat = boundary
+            ax.plot(blon, blat, color="black", linewidth=map_lw)
+
+        # CMZ polygon
+        polygon = Polygon(
+            list(zip(polygon1_lon, polygon1_lat)),
+            fill=False, edgecolor="black", linewidth=polygon_lw,
+        )
+        ax.add_patch(polygon)
+
+        # Highlight the selected province cell
+        if highlight_coord is not None:
+            hi, hj = highlight_coord
+            cell_lon = lons[hj]
+            cell_lat = lats[hi]
+            dx = lons[1] - lons[0]
+            dy = lats[1] - lats[0]
+            rect = plt.Rectangle(
+                (cell_lon - dx / 2, cell_lat - dy / 2), dx, dy,
+                linewidth=2.5, edgecolor="blue", facecolor="none", zorder=5
+            )
+            ax.add_patch(rect)
+
+        # Value annotations
+        for ii, lat in enumerate(lats):
+            for jj, lon in enumerate(lons):
+                value = rainfall[ii, jj]
+                if not np.isnan(value):
+                    text_color = "white" if value > (vmax - vmin) / 2 else "black"
+                    ax.text(lon, lat, f"{value:.1f}", ha="center", va="center",
+                            color=text_color, fontsize=txt_fsize, fontweight="normal")
+
+        # Axis styling
+        ax.set_xlim([lons.min() - 2, lons.max() + 2])
+        ax.set_ylim([lats.min() - 2, lats.max() + 2])
+
+        xticks = np.arange(lons.min(), lons.max() + 1, 8)
+        ax.set_xticks(xticks)
+        ax.set_xticklabels([f"{int(x)}°E" for x in xticks])
+        ax.set_xlabel("Longitude", fontsize=12)
+
+        if show_ylabel:
+            yticks = np.arange(lats.min(), lats.max() + 1, 4)
+            ax.set_yticks(yticks)
+            ax.set_yticklabels([f"{int(y)}°N" for y in yticks])
+            ax.set_ylabel("Latitude", fontsize=12)
+        else:
+            ax.set_yticks([])
+            ax.set_yticklabels([])
+
+        ax.tick_params(axis="both", which="major", labelsize=10, length=tick_length, width=tick_width)
+        for side in ["top", "right", "bottom", "left"]:
+            ax.spines[side].set_linewidth(panel_linewidth)
+        ax.set_aspect("equal", adjustable="box")
+        ax.grid(False)
+        ax.set_title(title, fontsize=12)
+
+        return pcm
+
+    # --- Create 2x3 figure ---
+    fig, axes = plt.subplots(2, 3, figsize=(24, 12))
+
+    # Row 1: Climatological onset
+    for col, offset in enumerate(offsets):
+        day_idx = int(clim_onset_date + offset)
+        rainfall = rain_data["RAINFALL"].values[day_idx]
+        title = f"Climatological ({day_to_daystr(day_idx, year)})"
+        pcm_clim = plot_rainfall_panel(axes[0, col], rainfall, lons, lats, title,
+                                    show_ylabel=(col == 0), highlight_coord=(i, j))
+
+    # Row 2: Model onset
+    for col, offset in enumerate(offsets):
+        day_idx = int(model_onset_date + offset)
+        rainfall = rain_data["RAINFALL"].values[day_idx]
+        title = f"{model_name} Model ({day_to_daystr(day_idx, year)})" if offset else f"{model_name} Model (Day {day_to_daystr(day_idx, year)})"
+        pcm_model = plot_rainfall_panel(axes[1, col], rainfall, lons, lats, title,
+                                    show_ylabel=(col == 0), highlight_coord=(i, j))
+
+    # One colorbar per row
+    cbar1 = fig.colorbar(pcm_clim, ax=axes[0, :].tolist(), fraction=0.02, pad=0.02)
+    cbar1.set_label("Rainfall (mm)", fontsize=12)
+    cbar1.ax.tick_params(labelsize=9)
+
+    cbar2 = fig.colorbar(pcm_model, ax=axes[1, :].tolist(), fraction=0.02, pad=0.02)
+    cbar2.set_label("Rainfall (mm)", fontsize=12)
+    cbar2.ax.tick_params(labelsize=9)
+
+    plt.suptitle(f"Rainfall Comparison at Predicted Onset Date — Province {province_num}, Year {year}", fontsize=15, y=1.01)
+    plt.show()
     return fig, axes
