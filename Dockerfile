@@ -28,7 +28,7 @@ COPY pyproject.toml .
 COPY README.md .
 
 # Copy package code.
-# NOTE: If your repo contains large raw data under monsoonbench/data/*, you MUST exclude it via .dockerignore.
+# NOTE: If your repo contains large raw data under data/*, you MUST exclude it via .dockerignore.
 COPY monsoonbench/ ./monsoonbench/
 
 # --- Python environment via uv ---
@@ -37,6 +37,7 @@ RUN /usr/local/bin/uv venv /opt/venv
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 ENV PYTHONPATH=/project
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv
 
 # Install deps into /opt/venv
 RUN uv sync --extra netcdf4 --active

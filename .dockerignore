@@ -1,4 +1,7 @@
 # raw data directories inside repo
+data/
+
+# legacy raw-data location (kept for compatibility if some local clones still use it)
 monsoonbench/data/imd_rainfall_data/
 monsoonbench/data/model_forecast_data/
 monsoonbench/data/imd_onset_threshold/

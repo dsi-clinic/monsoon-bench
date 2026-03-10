@@ -5,10 +5,10 @@
 # Design goals:
 # - Keep the Docker image small: image contains ONLY code + dependencies.
 # - Never bake raw data into the image: raw data is ALWAYS mounted at runtime.
-# - Preserve the repo's existing path assumptions (monsoonbench/data/...) without refactors.
+# - Keep container paths aligned with current repo data layout (`data/...`).
 #
 # Usage:
-#   # Option A (data lives inside repo under monsoonbench/data/*):
+#   # Option A (data lives inside repo under data/*):
 #   docker compose run --rm monsoonbench bash
 #
 #   # Option B (data lives outside repo):
@@ -18,7 +18,7 @@
 #
 # Jupyter:
 #   docker compose run --rm -p 8888:8888 monsoonbench \
-#     bash -lc "uv run jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --NotebookApp.token='' --allow-root"
+#     bash -c "jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --IdentityProvider.token='' --allow-root"
 
 services:
   monsoonbench:
@@ -33,19 +33,21 @@ services:
     environment:
       # "Repo root" inside container.
       REPO_ROOT: /project
-      # Where the code expects "data/" to live (keeps existing repo assumptions).
-      DATA_DIR: /project/monsoonbench/data
+      # Where benchmark data is mounted in container.
+      DATA_DIR: /project/data
       # Ensure imports resolve against the mounted repo.
       PYTHONPATH: /project
+      # Keep uv from trying to use /project/.venv (host-mounted and OS-specific).
+      UV_PROJECT_ENVIRONMENT: /opt/venv
 
     # Volumes:
     # 1) Mount repo code so edits are live inside the container.
-    # 2) Mount raw-data subfolders either from repo-local path (default) OR an external host path.
+    # 2) Mount raw data either from repo-local path (default) OR an external host path.
     volumes:
       - .:/project
 
-      # Raw data mounts (choose source via HOST_RAW_DATA):
-      # - If HOST_RAW_DATA is NOT set, default to ./monsoonbench/data (repo-local).
+      # Raw data mount (choose source via HOST_RAW_DATA):
+      # - If HOST_RAW_DATA is NOT set, default to ./data (repo-local).
       # - If HOST_RAW_DATA IS set, use that external directory.
       #
       # Required layout under HOST_RAW_DATA:
@@ -55,11 +57,7 @@ services:
       #     imd_onset_threshold/
       #     data_shapefile/
       #     ind_map_shpfile/
-      - ${HOST_RAW_DATA:-./monsoonbench/data}/imd_rainfall_data:/project/monsoonbench/data/imd_rainfall_data
-      - ${HOST_RAW_DATA:-./monsoonbench/data}/model_forecast_data:/project/monsoonbench/data/model_forecast_data
-      - ${HOST_RAW_DATA:-./monsoonbench/data}/imd_onset_threshold:/project/monsoonbench/data/imd_onset_threshold
-      - ${HOST_RAW_DATA:-./monsoonbench/data}/data_shapefile:/project/monsoonbench/data/data_shapefile
-      - ${HOST_RAW_DATA:-./monsoonbench/data}/ind_map_shpfile:/project/monsoonbench/data/ind_map_shpfile
+      - ${HOST_RAW_DATA:-./data}:/project/data
 
     # Large shared memory helps with xarray/netCDF workloads and avoids /dev/shm issues.
     shm_size: "16gb"
