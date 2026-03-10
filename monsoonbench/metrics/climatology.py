@@ -23,6 +23,7 @@ from .base import OnsetMetricsBase
 from .probabilistic import ProbabilisticOnsetMetrics
 
 
+
 class ClimatologyOnsetMetrics(OnsetMetricsBase):
     """Class to compute climatology onset metrics."""
 
@@ -157,7 +158,10 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
                     # Extract year from filename
                     if filename.startswith("data_"):
                         year_str = filename.replace("data_", "").replace(".nc", "")
+                    if filename.startswith("data_"):
+                        year_str = filename.replace("data_", "").replace(".nc", "")
                     else:
+                        year_str = filename.replace(".nc", "")
                         year_str = filename.replace(".nc", "")
                     year = int(year_str)
                     years.append(year)
@@ -222,6 +226,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
                 ("lon", thresh_slice.lon.values)
             ],
             name="climatological_onset_dates",
+            name="climatological_onset_dates",
             attrs={
                 "description": "Onset dates for climatological ensemble",
                 "method": "MOK (June 2nd filter)" if mok else "no date filter",
@@ -240,6 +245,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
 
         print(f"\n{'='*60}")
         print("CLIMATOLOGICAL ONSET DATASET SUMMARY")
+        print("CLIMATOLOGICAL ONSET DATASET SUMMARY")
         print(f"{'='*60}")
         print(
             f"Years processed: {len(valid_years)} ({min(valid_years)}-{max(valid_years)})"
@@ -253,6 +259,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         print(f"Method: {'MOK (June 2nd filter)' if mok else 'No date filter'}")
 
         # Show onset statistics by year
+        print("\nOnset statistics by year:")
         print("\nOnset statistics by year:")
         for i, year in enumerate(valid_years):
             year_onsets = (~pd.isna(climatological_onset_da.isel(year=i).values)).sum()
@@ -1412,6 +1419,8 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
                 bin_auc_scores[bin_label] = bin_auc
 
         auc_results = {
+            "auc": auc,
+            "bin_auc_scores": bin_auc_scores,
             "auc": auc,
             "bin_auc_scores": bin_auc_scores,
         }
