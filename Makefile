@@ -42,7 +42,7 @@ test: build
 lab: build
 	@echo "Starting Jupyter Lab at http://localhost:8888 ..."
 	@HOST_RAW_DATA="$(HOST_RAW_DATA)" docker compose run --rm -p 8888:8888 $(SERVICE) \
-		bash -lc "uv run jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --NotebookApp.token='' --allow-root"
+		bash -c "jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --IdentityProvider.token='' --allow-root"
 
 ## up: Bring up the service (useful if you later add a long-running command in compose).
 up: build
