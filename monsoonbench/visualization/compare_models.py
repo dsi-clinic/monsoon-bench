@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -495,7 +496,7 @@ def plot_probabilistic_model_comparison_dual_axis(
 def compare_probabilistic_models(base_config, model_info) -> pd.DataFrame:
     """Create probabilistic score table and plot dual comparison graph."""
     comparison_df = create_probabilistic_model_comparison_table(base_config, model_info)
-    fig = plot_probabilistic_model_comparison_dual_axis(
+    plot_probabilistic_model_comparison_dual_axis(
         comparison_df=comparison_df, title="Probabilistic Skill"
     )
     # Save with model name and forecast days
@@ -526,7 +527,7 @@ def get_target_bins(brier_forecast, brier_climatology):
             try:
                 day_part = bin_label.replace("Days ", "").split("-")[0]
                 return int(day_part)
-            except:
+            except Exception:
                 return 999
         return 999
 
@@ -648,7 +649,7 @@ def create_heatmap_visual(heatmap_data, model_name, max_forecast_day, save_dir=N
     # Handle save directory
     if save_dir is not None:
         # Create directory if it doesn't exist
-        os.makedirs(save_dir, exist_ok=True)
+        Path(save_dir).mkdir(parents=True, exist_ok=True)
 
         # Ensure save_dir ends with a path separator for proper joining
         if not save_dir.endswith(os.sep):
@@ -856,7 +857,7 @@ def plot_reliability_diagram(metrics_df, config):
 
     # Save logic
     if config.get("save_dir"):
-        os.makedirs(config["save_dir"], exist_ok=True)
+        Path(config["save_dir"]).mkdir(parents=True, exist_ok=True)
         path = os.path.join(
             config["save_dir"], f"reliability_{config['max_forecast_day']}day.png"
         )
