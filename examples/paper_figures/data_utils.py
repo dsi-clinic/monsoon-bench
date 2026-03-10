@@ -2,8 +2,8 @@
 
 import numpy as np
 import pandas as pd
-from scipy.io import savemat
 import xarray as xr
+from scipy.io import savemat
 
 from monsoonbench.metrics import (
     ClimatologyOnsetMetrics,
@@ -13,7 +13,6 @@ from monsoonbench.metrics import (
 from monsoonbench.visualization import (
     create_model_comparison_table,
 )
-
 
 #Figure 1 year ranges
 YEAR_RANGES = {
@@ -53,8 +52,7 @@ def get_model_dfs(
     config: dict[str, str],
     days: int = 15,
 ) -> tuple[dict[str, pd.DataFrame], dict[str, xr.DataArray]]:
-    """
-    Get model dataframes and onset data arrays for a given set of model paths, year ranges, and forecast period.
+    """Get model dataframes and onset data arrays for a given set of model paths, year ranges, and forecast period.
 
     Args:
         model_paths: Dictionary of model names and their file paths.
@@ -125,8 +123,8 @@ def get_plot_metrics(
     config: dict[str, str],
     day: int = 15,
 ) -> dict[str, np.ndarray]:
-    """
-    Get Figure 1 & 4 plot metrics for a given set of model
+    """Get Figure 1 & 4 plot metrics for a given set of model
+
     dataframes, onset data arrays, climatological data, and configuration.
 
     Args:
@@ -205,8 +203,7 @@ def get_plot_metrics(
 def get_climatological_dfs(
     config: dict[str, str],
 ) -> dict[str, tuple[pd.DataFrame, xr.DataArray]]:
-    """
-    Get climatological dataframes and onset data arrays for all year ranges.
+    """Get climatological dataframes and onset data arrays for all year ranges.
 
     Args:
         config: Dictionary of configuration parameters.
@@ -289,9 +286,8 @@ def save_data(
     mat_dict: dict[str, np.ndarray],
     output_dir: str,
     save_path: str
-):
-    """
-    Save data to a .mat file.
+) -> None:
+    """Save data to a .mat file.
 
     Args:
         mat_dict: Dictionary of data to save.
@@ -303,9 +299,8 @@ def save_data(
     print("Saved to:", out_path)
     return
 
-def load_wyi(output_dir: str):
-    """
-    Load WYI data from a .mat file.
+def load_wyi(output_dir: str) -> None:
+    """Load WYI data from a .mat file.
 
     Args:
         output_dir: Directory to save the WYI data to.
@@ -399,9 +394,9 @@ def load_wyi(output_dir: str):
 def save_all_data(
     model_paths: dict[str, str],
     config: dict[str, str]
-):
-    """
-    Save all data for figures 1 and 4.
+) -> None:
+    """Save all data for figures 1 and 4.
+
     Args:
         model_paths: Dictionary of model paths.
         config: Dictionary of configuration parameters.
