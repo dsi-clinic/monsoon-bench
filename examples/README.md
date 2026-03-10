@@ -8,6 +8,7 @@ This directory contains example notebooks demonstrating how to use MonsoonBench 
   - `package_walkthrough.ipynb` - Basic package usage and workflow
   - `researcher_use_case_benchmark.ipynb` - Comprehensive benchmarking example
   - `compare_models.ipynb` - Multi-model comparison
+  - `exploratory_onset_timeseries.ipynb` - Step-by-step onset diagnostics and cross-type comparison walkthrough
   - `outputs/` - Generated visualizations and results
 
 - **`exploratory_notebooks/`** - Development and experimental notebooks
@@ -32,6 +33,17 @@ For a complete benchmarking workflow, see `demo_notebooks/researcher_use_case_be
 - Comprehensive spatial and temporal metrics
 
 This notebook demonstrates production-ready analysis suitable for research papers and presentations.
+
+### 3. Exploratory Onset Time-Series Walkthrough
+
+Use `demo_notebooks/exploratory_onset_timeseries.ipynb` when you need a compact,
+interpretable workflow for:
+- single-point onset diagnostics (raw rainfall -> onset trigger visualization)
+- deterministic vs probabilistic comparison at the same point/year
+- export of comparison artifacts (figure + metrics CSVs)
+
+The notebook intentionally avoids defining functions inline. Reusable logic lives in
+`monsoonbench/utils/onset_timeseries.py`.
 
 ## Using the Notebooks
 

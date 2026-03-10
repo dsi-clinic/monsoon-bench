@@ -22,7 +22,9 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
     """Probabilistic model specific onset metrics calculations."""
 
     @staticmethod
-    def _ensure_member_dimension(ds: xr.Dataset, default_members: int = 4) -> xr.Dataset:
+    def _ensure_member_dimension(
+        ds: xr.Dataset, default_members: int = 4
+    ) -> xr.Dataset:
         """Ensure an ensemble member dimension exists and is named 'member'."""
         if "member" in ds.dims:
             # Some files may include both "member" and an auxiliary ensemble
