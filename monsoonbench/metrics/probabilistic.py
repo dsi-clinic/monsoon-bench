@@ -1036,7 +1036,8 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
             except Exception:
                 print(f"Error processing year {year}:")
                 import traceback
-                traceback.print_exc() # This reveals the REAL line number and error
+
+                traceback.print_exc()  # This reveals the REAL line number and error
                 continue
 
         # Combine all years
