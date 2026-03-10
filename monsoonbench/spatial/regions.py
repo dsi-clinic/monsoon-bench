@@ -120,7 +120,9 @@ def detect_resolution(lats: np.ndarray) -> float:
 
 
 # Function to find grid points inside a polygon (For core-monsoon zone analysis)
-def points_inside_polygon(polygon_lon, polygon_lat, grid_lons, grid_lats) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def points_inside_polygon(
+    polygon_lon, polygon_lat, grid_lons, grid_lats
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Find grid points that are inside a polygon.
 
     Parameters:

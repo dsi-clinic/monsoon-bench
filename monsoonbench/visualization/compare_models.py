@@ -763,6 +763,7 @@ def create_heatmap_visual(heatmap_data, model_name, max_forecast_day, save_dir=N
 
     return figure_filename
 
+
 def get_day_bins(max_days):
     """Helper to generate bins based on forecast window."""
     if max_days == 15:
@@ -770,6 +771,7 @@ def get_day_bins(max_days):
     if max_days == 30:
         return [(1, 5), (6, 10), (11, 15), (16, 20), (21, 25), (26, 30)]
     raise ValueError(f"Unsupported max_forecast_day: {max_days}")
+
 
 def calculate_reliability_metrics(df, n_bins=10):
     """Logic preserved: calculates reliability, frequency, and error bars per bin."""
@@ -810,6 +812,7 @@ def calculate_reliability_metrics(df, n_bins=10):
         )
 
     return pd.DataFrame(results)
+
 
 def plot_reliability_diagram(metrics_df, config):
     """Generate and save the reliability diagram."""
