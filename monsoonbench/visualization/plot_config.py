@@ -6,6 +6,7 @@ Usage:
 """
 
 import subprocess
+import shutil
 import warnings
 
 # ============================================================================
@@ -93,7 +94,7 @@ SAVE_DIR = ""
 # LaTeX Availability Check
 # ============================================================================
 
-def check_latex_available():
+def check_latex_available() -> bool:
     """Check if LaTeX is available on the system using 'which latex'.
     
     Returns:
@@ -101,10 +102,8 @@ def check_latex_available():
     """
     try:
         # Use 'which latex' to find LaTeX installation
-        result = subprocess.run(["which", "latex"], 
-                              capture_output=True, text=True, timeout=5)
-        if result.returncode == 0:
-            latex_path = result.stdout.strip()
+        latex_path = shutil.which("latex")
+        if latex_path:
             print(f"✓ LaTeX found at: {latex_path}")
             return True
         else:
@@ -120,7 +119,8 @@ if not LATEX_AVAILABLE:
     warnings.warn(
         "LaTeX not found. Falling back to standard matplotlib fonts. "
         "For better typography, install LaTeX (see README for instructions).",
-        UserWarning
+        UserWarning,
+        stacklevel=2
     )
 
 # Combine parameters based on LaTeX availability
