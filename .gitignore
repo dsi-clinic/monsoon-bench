@@ -151,3 +151,9 @@ reference_scripts/*/testing.ipynb
 # Development/testing outputs
 output/
 results/monsoonbench/data/load_setup_README.md
+
+# ---- monsoon-bench raw data (DO NOT COMMIT) ----
+data/ind_map_shpfile/
+data/imd_onset_threshold/
+data/imd_rainfall_data/
+data/model_forecast_data/

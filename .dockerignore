@@ -1,0 +1,23 @@
+# raw data directories inside repo
+data/
+
+# legacy raw-data location (kept for compatibility if some local clones still use it)
+monsoonbench/data/imd_rainfall_data/
+monsoonbench/data/model_forecast_data/
+monsoonbench/data/imd_onset_threshold/
+monsoonbench/data/data_shapefile/
+monsoonbench/data/ind_map_shpfile/
+
+# huge binaries
+**/*.nc
+**/*.grib
+**/*.grib2
+**/*.h5
+**/*.hdf5
+**/*.parquet
+
+# misc
+.git/
+.venv/
+__pycache__/
+.ipynb_checkpoints/
