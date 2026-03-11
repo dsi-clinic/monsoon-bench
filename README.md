@@ -94,6 +94,8 @@ monsoon-bench/
 │ ├── data/ # Dataloaders
 │ │ └── dataloader_quickstart.md
 │ ├── metrics/ # Onset detection + evaluation pipeline
+│ ├── utils/ # Notebook-facing reusable helpers (e.g., onset_timeseries)
+│ │ └── README.md
 │ ├── visualization/ # Scorecards + metric downloaders
 │ │ └── README.md
 │ ├── README.md # Module-level pipeline documentation

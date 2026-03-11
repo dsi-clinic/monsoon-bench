@@ -14,15 +14,15 @@ from monsoonbench.visualization import (
     create_model_comparison_table,
 )
 
-#Figure 1 year ranges
+# Figure 1 year ranges
 YEAR_RANGES = {
     "AIFS": np.arange(2019, 2025),
     "IFS": np.arange(2019, 2024),
-    "FuXi": np.arange(2019,2025), 
-    "Graphcast": np.arange(2019,2025), 
+    "FuXi": np.arange(2019, 2025),
+    "Graphcast": np.arange(2019, 2025),
     "GenCast": np.arange(2019, 2025),
     "FuXi-S2S": np.arange(2019, 2022),
-    "NGCM": np.arange(2019, 2025)
+    "NGCM": np.arange(2019, 2025),
 }
 
 EXTENDED_YEARS = {
@@ -32,19 +32,20 @@ EXTENDED_YEARS = {
     "Graphcast": np.concatenate((np.arange(1965, 1979), np.arange(2019, 2025))),
     "GenCast": np.arange(2019, 2025),
     "FuXi-S2S": np.arange(2019, 2022),
-    "NGCM": np.concatenate((np.arange(1965, 1979), np.arange(2019, 2025)))
+    "NGCM": np.concatenate((np.arange(1965, 1979), np.arange(2019, 2025))),
 }
 
-#Figure 4 year ranges
+# Figure 4 year ranges
 YEAR_RANGES_COM = {
     "AIFS": np.arange(2019, 2025),
     "IFS": np.arange(2019, 2024),
-    "FuXi": np.arange(2019,2025), 
-    "Graphcast": np.arange(2019,2025), 
+    "FuXi": np.arange(2019, 2025),
+    "Graphcast": np.arange(2019, 2025),
     "GenCast": np.arange(2019, 2025),
     "FuXi-S2S": np.arange(2019, 2022),
-    "NGCM": np.arange(2019, 2025)
+    "NGCM": np.arange(2019, 2025),
 }
+
 
 def get_model_dfs(
     model_paths: dict[str, str],
@@ -188,13 +189,17 @@ def get_plot_metrics(
         "lat": lats,
         "lon": lons,
         f"mae_avg_{str(day)}": mae_yr_15.values,
-        "mae_cmz_fixed_clim": np.array([[7.18333333]]), #Fixed climatological MAE for 15-day and 30-day forecasts
+        "mae_cmz_fixed_clim": np.array(
+            [[7.18333333]]
+        ),  # Fixed climatological MAE for 15-day and 30-day forecasts
         f"mae_cmz_mean_{str(day)}": np.array(cmz_metrics["cmz_mae_mean_days"].values),
         f"mae_yr_{str(day)}": np.array(cmz_metrics["overall_mae_mean_days"].values),
         f"miss_rate_{str(day)}": miss_rate_15.values,
         f"mr_cmz_mean_{str(day)}": np.array(cmz_metrics["cmz_mr_pct"].values),
         f"std_er_{str(day)}": np.array(cmz_metrics["cmz_mae_se_days"].values),
-        "std_er_fixed_clim": np.array([[0.9686474]]), #Fixed climatological standard error for 15-day and 30-day forecasts
+        "std_er_fixed_clim": np.array(
+            [[0.9686474]]
+        ),  # Fixed climatological standard error for 15-day and 30-day forecasts
     }
 
     return mat_dict
@@ -229,18 +234,20 @@ def get_climatological_dfs(
     )
 
     # Compute 15-day forecast data for the extended period
-    clim_df_15_ex, clim_onset_15_ex = c_metrics.compute_climatology_baseline_multiple_years(
-        years=np.concatenate((np.arange(1965, 1979), np.arange(2019, 2025))),
-        imd_folder=config["imd_folder"],
-        thres_file=config["thres_file"],
-        tolerance_days=3,
-        verification_window=1,
-        forecast_days=15,
-        max_forecast_day=15,
-        mok=True,
-        onset_window=5,
-        mok_month=6,
-        mok_day=2,
+    clim_df_15_ex, clim_onset_15_ex = (
+        c_metrics.compute_climatology_baseline_multiple_years(
+            years=np.concatenate((np.arange(1965, 1979), np.arange(2019, 2025))),
+            imd_folder=config["imd_folder"],
+            thres_file=config["thres_file"],
+            tolerance_days=3,
+            verification_window=1,
+            forecast_days=15,
+            max_forecast_day=15,
+            mok=True,
+            onset_window=5,
+            mok_month=6,
+            mok_day=2,
+        )
     )
 
     # Compute 30-day forecast data
@@ -259,18 +266,20 @@ def get_climatological_dfs(
     )
 
     # Compute 30-day forecast data for the extended period
-    clim_df_30_ex, clim_onset_30_ex = c_metrics.compute_climatology_baseline_multiple_years(
-        years=np.concatenate((np.arange(1965, 1979), np.arange(2019, 2025))),
-        imd_folder=config["imd_folder"],
-        thres_file=config["thres_file"],
-        tolerance_days=5,
-        verification_window=16,
-        forecast_days=30,
-        max_forecast_day=30,
-        mok=True,
-        onset_window=5,
-        mok_month=6,
-        mok_day=2,
+    clim_df_30_ex, clim_onset_30_ex = (
+        c_metrics.compute_climatology_baseline_multiple_years(
+            years=np.concatenate((np.arange(1965, 1979), np.arange(2019, 2025))),
+            imd_folder=config["imd_folder"],
+            thres_file=config["thres_file"],
+            tolerance_days=5,
+            verification_window=16,
+            forecast_days=30,
+            max_forecast_day=30,
+            mok=True,
+            onset_window=5,
+            mok_month=6,
+            mok_day=2,
+        )
     )
 
     output = {
@@ -282,11 +291,8 @@ def get_climatological_dfs(
 
     return output
 
-def save_data(
-    mat_dict: dict[str, np.ndarray],
-    output_dir: str,
-    save_path: str
-) -> None:
+
+def save_data(mat_dict: dict[str, np.ndarray], output_dir: str, save_path: str) -> None:
     """Save data to a .mat file.
 
     Args:
@@ -299,61 +305,67 @@ def save_data(
     print("Saved to:", out_path)
     return
 
+
 def load_wyi(output_dir: str) -> None:
     """Load WYI data from a .mat file.
 
     Args:
         output_dir: Directory to save the WYI data to.
     """
-    model_str = np.array([
-        ["clim"],
-        ["ifs"],
-        ["aifs"],
-        ["fuxi"],
-        ["graphcast"],
-        ["gencast"],
-        ["ngcm51"]
-    ])
+    model_str = np.array(
+        [["clim"], ["ifs"], ["aifs"], ["fuxi"], ["graphcast"], ["gencast"], ["ngcm51"]]
+    )
 
-    alt_model_str = np.array([
-        ["clim"],
-        ["ifs"],
-        ["aifs"],
-        ["fuxi"],
-        ["graphcast"],
-        ["ngcm51"]
-    ])
+    alt_model_str = np.array(
+        [["clim"], ["ifs"], ["aifs"], ["fuxi"], ["graphcast"], ["ngcm51"]]
+    )
 
     wyi_15day = {
-        "false_alarm": np.array([[0.5434, 0.1481, 0.2333, 0.3030, 0.2000, 0.1666, 0.1612]]),
+        "false_alarm": np.array(
+            [[0.5434, 0.1481, 0.2333, 0.3030, 0.2000, 0.1666, 0.1612]]
+        ),
         "mae_avg": np.array([[6.1666, 1.8000, 2.3435, 4.7546, 2.1712, 1.9861, 1.6202]]),
-        "miss_rate": np.array([[0.3333, 0.1739, 0.0740, 0.1851, 0.1851, 0.1481, 0.1111]]),
+        "miss_rate": np.array(
+            [[0.3333, 0.1739, 0.0740, 0.1851, 0.1851, 0.1481, 0.1111]]
+        ),
         "model_str": model_str,
-        "std_er": np.array([[0.8724, 1.0588, 1.3824, 1.9608, 1.1938, 1.2578, 0.9984]])
+        "std_er": np.array([[0.8724, 1.0588, 1.3824, 1.9608, 1.1938, 1.2578, 0.9984]]),
     }
 
     wyi_30day = {
-        "false_alarm": np.array([[1.0000, 0.5000, 0.8571, 0.7500, 0.5000, 0.4285, 0.7000]]),
+        "false_alarm": np.array(
+            [[1.0000, 0.5000, 0.8571, 0.7500, 0.5000, 0.4285, 0.7000]]
+        ),
         "mae_avg": np.array([[6.1666, 4.3766, 5.1111, 5.9666, 4.6694, 4.1500, 4.0666]]),
-        "miss_rate": np.array([[0.1224, 0.0476, 0.0408, 0.0204, 0.0408, 0.0816, 0.0204]]),
+        "miss_rate": np.array(
+            [[0.1224, 0.0476, 0.0408, 0.0204, 0.0408, 0.0816, 0.0204]]
+        ),
         "model_str": model_str,
-        "std_er": np.array([[0.8724, 1.6206, 1.9510, 2.1287, 2.0323, 1.6568, 0.8027]])
+        "std_er": np.array([[0.8724, 1.6206, 1.9510, 2.1287, 2.0323, 1.6568, 0.8027]]),
     }
 
     wyi_15day_extended = {
-        "false_alarm": np.array([[0.4112, 0.1481, 0.2870, 0.4298, 0.3425, 0.2056, 0.2545]]),
+        "false_alarm": np.array(
+            [[0.4112, 0.1481, 0.2870, 0.4298, 0.3425, 0.2056, 0.2545]]
+        ),
         "mae_avg": np.array([[4.7000, 1.8000, 3.1356, 4.7063, 3.3155, 2.6904, 2.6446]]),
-        "miss_rate": np.array([[0.2413, 0.1739, 0.1264, 0.1034, 0.1264, 0.0919, 0.0689]]),
+        "miss_rate": np.array(
+            [[0.2413, 0.1739, 0.1264, 0.1034, 0.1264, 0.0919, 0.0689]]
+        ),
         "model_str": model_str,
-        "std_er": np.array([[0.7884, 1.0588, 0.6182, 0.8258, 0.6061, 0.5977, 0.5668]])
+        "std_er": np.array([[0.7884, 1.0588, 0.6182, 0.8258, 0.6061, 0.5977, 0.5668]]),
     }
 
     wyi_30day_extended = {
-        "false_alarm": np.array([[1.0000, 0.5000, 0.8709, 0.9210, 0.8484, 0.6923, 0.7777]]),
+        "false_alarm": np.array(
+            [[1.0000, 0.5000, 0.8709, 0.9210, 0.8484, 0.6923, 0.7777]]
+        ),
         "mae_avg": np.array([[4.7000, 4.3766, 5.1447, 7.1400, 6.6508, 4.1158, 4.1641]]),
-        "miss_rate": np.array([[0.0848, 0.0476, 0.0606, 0.0060, 0.0121, 0.0484, 0.0181]]),
+        "miss_rate": np.array(
+            [[0.0848, 0.0476, 0.0606, 0.0060, 0.0121, 0.0484, 0.0181]]
+        ),
         "model_str": model_str,
-        "std_er": np.array([[0.7884, 1.6206, 0.7717, 1.0998, 1.2267, 0.7091, 0.8559]])
+        "std_er": np.array([[0.7884, 1.6206, 0.7717, 1.0998, 1.2267, 0.7091, 0.8559]]),
     }
 
     wyi_15day_common = {
@@ -361,7 +373,7 @@ def load_wyi(output_dir: str) -> None:
         "mae_avg": np.array([[4.4705, 1.9068, 1.6950, 3.2616, 1.3737, 1.7058]]),
         "miss_rate": np.array([[0.2531, 0.2151, 0.1265, 0.0886, 0.1645, 0.1898]]),
         "model_str": alt_model_str,
-        "std_er": np.array([[0.6812, 0.5090, 0.4903, 0.7105, 0.4258, 0.3777]])
+        "std_er": np.array([[0.6812, 0.5090, 0.4903, 0.7105, 0.4258, 0.3777]]),
     }
 
     wyi_30day_common = {
@@ -369,12 +381,16 @@ def load_wyi(output_dir: str) -> None:
         "mae_avg": np.array([[5.2222, 4.1462, 3.4617, 6.4148, 4.3156, 4.5166]]),
         "miss_rate": np.array([[0.0507, 0.0652, 0.0434, 0.0507, 0.0144, 0.0434]]),
         "model_str": alt_model_str,
-        "std_er": np.array([[0.9886, 0.7309, 0.7843, 1.0687, 0.8023, 0.6104]])
+        "std_er": np.array([[0.9886, 0.7309, 0.7843, 1.0687, 0.8023, 0.6104]]),
     }
 
     wyi_data = [
-        wyi_15day, wyi_30day, wyi_15day_extended,
-        wyi_30day_extended, wyi_15day_common, wyi_30day_common
+        wyi_15day,
+        wyi_30day,
+        wyi_15day_extended,
+        wyi_30day_extended,
+        wyi_15day_common,
+        wyi_30day_common,
     ]
 
     wyi_paths = [
@@ -383,7 +399,7 @@ def load_wyi(output_dir: str) -> None:
         "wyi_onset_deterministic_metrics_15day_1965_1978_2019_2024_with_gencast",
         "wyi_onset_deterministic_metrics_30day_1965_1978_2019_2024_with_gencast",
         "wyi_onset_deterministic_metrics_15day_2004_2021",
-        "wyi_onset_deterministic_metrics_30day_2004_2021"
+        "wyi_onset_deterministic_metrics_30day_2004_2021",
     ]
 
     for wyi_dct, fp in zip(wyi_data, wyi_paths):
@@ -391,10 +407,7 @@ def load_wyi(output_dir: str) -> None:
     return
 
 
-def save_all_data(
-    model_paths: dict[str, str],
-    config: dict[str, str]
-) -> None:
+def save_all_data(model_paths: dict[str, str], config: dict[str, str]) -> None:
     """Save all data for figures 1 and 4.
 
     Args:
@@ -402,12 +415,20 @@ def save_all_data(
         config: Dictionary of configuration parameters.
     """
     print("Loading Model Data (2019-2024)...")
-    model_dfs_15, model_onsets_15 = get_model_dfs(model_paths, year_ranges=YEAR_RANGES, config=config, days=15)
-    model_dfs_30, model_onsets_30 = get_model_dfs(model_paths, year_ranges=YEAR_RANGES, config=config, days=30)
+    model_dfs_15, model_onsets_15 = get_model_dfs(
+        model_paths, year_ranges=YEAR_RANGES, config=config, days=15
+    )
+    model_dfs_30, model_onsets_30 = get_model_dfs(
+        model_paths, year_ranges=YEAR_RANGES, config=config, days=30
+    )
 
     print("Loading Model Data (extended period)...")
-    model_dfs_15_ex, model_onsets_15_ex = get_model_dfs(model_paths, year_ranges=EXTENDED_YEARS, config=config, days=15)
-    model_dfs_30_ex, model_onsets_30_ex = get_model_dfs(model_paths, year_ranges=EXTENDED_YEARS, config=config, days=30)
+    model_dfs_15_ex, model_onsets_15_ex = get_model_dfs(
+        model_paths, year_ranges=EXTENDED_YEARS, config=config, days=15
+    )
+    model_dfs_30_ex, model_onsets_30_ex = get_model_dfs(
+        model_paths, year_ranges=EXTENDED_YEARS, config=config, days=30
+    )
 
     print("Loading Climatoligcal Data")
     clim_data = get_climatological_dfs()
@@ -417,47 +438,47 @@ def save_all_data(
     clim_df_30_ex, clim_onset_30_ex = clim_data["30_day_ex"]
 
     print("Loading Model Data (2004-2021)...")
-    model_dfs_15_cm, model_onsets_15_cm = get_model_dfs(model_paths, year_ranges=YEAR_RANGES_COM, config=config, days=15)
-    model_dfs_30_cm, model_onsets_30_cm = get_model_dfs(model_paths, year_ranges=YEAR_RANGES_COM, config=config, days=30)
-    
-    print("Saving Data...")
-    md_15 = get_plot_metrics(model_dfs_15, model_onsets_15, clim_df_15, clim_onset_15, config, 15)
-    md_15_ex = get_plot_metrics(model_dfs_15_ex, model_onsets_15_ex, clim_df_15_ex, clim_onset_15_ex, config, 15)
-    md_30  = get_plot_metrics(model_dfs_30, model_onsets_30, clim_df_30, clim_onset_30, config, 30)
-    md_30_ex = get_plot_metrics(model_dfs_30_ex, model_onsets_30_ex, clim_df_30_ex, clim_onset_30_ex, config, 30)
-    md_15_cm = get_plot_metrics(model_dfs_15_cm, model_onsets_15_cm, clim_df_15, clim_onset_15, config, 15)
-    md_30_cm  = get_plot_metrics(model_dfs_30_cm, model_onsets_30_cm, clim_df_30, clim_onset_30, config, 30)
-
-    save_data(
-        md_15,
-        config["output_dir"],
-        "deterministic_scores_15_day_2019_2024"
+    model_dfs_15_cm, model_onsets_15_cm = get_model_dfs(
+        model_paths, year_ranges=YEAR_RANGES_COM, config=config, days=15
     )
+    model_dfs_30_cm, model_onsets_30_cm = get_model_dfs(
+        model_paths, year_ranges=YEAR_RANGES_COM, config=config, days=30
+    )
+
+    print("Saving Data...")
+    md_15 = get_plot_metrics(
+        model_dfs_15, model_onsets_15, clim_df_15, clim_onset_15, config, 15
+    )
+    md_15_ex = get_plot_metrics(
+        model_dfs_15_ex, model_onsets_15_ex, clim_df_15_ex, clim_onset_15_ex, config, 15
+    )
+    md_30 = get_plot_metrics(
+        model_dfs_30, model_onsets_30, clim_df_30, clim_onset_30, config, 30
+    )
+    md_30_ex = get_plot_metrics(
+        model_dfs_30_ex, model_onsets_30_ex, clim_df_30_ex, clim_onset_30_ex, config, 30
+    )
+    md_15_cm = get_plot_metrics(
+        model_dfs_15_cm, model_onsets_15_cm, clim_df_15, clim_onset_15, config, 15
+    )
+    md_30_cm = get_plot_metrics(
+        model_dfs_30_cm, model_onsets_30_cm, clim_df_30, clim_onset_30, config, 30
+    )
+
+    save_data(md_15, config["output_dir"], "deterministic_scores_15_day_2019_2024")
     save_data(
         md_15_ex,
         config["output_dir"],
-        "deterministic_scores_15_day_1965_1978_2019_2024_with_gencast"
+        "deterministic_scores_15_day_1965_1978_2019_2024_with_gencast",
     )
-    save_data(
-        md_30,
-        config["output_dir"],
-        "deterministic_scores_30_day_2019_2024"
-    )
+    save_data(md_30, config["output_dir"], "deterministic_scores_30_day_2019_2024")
     save_data(
         md_30_ex,
         config["output_dir"],
-        "deterministic_scores_30_day_1965_1978_2019_2024_with_gencast"
+        "deterministic_scores_30_day_1965_1978_2019_2024_with_gencast",
     )
-    save_data(
-        md_15_cm,
-        config["output_dir"],
-        "deterministic_scores_15_day_2004_2021"
-    )
-    save_data(
-        md_30_cm,
-        config["output_dir"],
-        "deterministic_scores_30_day_2004_2021"
-    )
+    save_data(md_15_cm, config["output_dir"], "deterministic_scores_15_day_2004_2021")
+    save_data(md_30_cm, config["output_dir"], "deterministic_scores_30_day_2004_2021")
 
     print("Saving WYI Data...")
     load_wyi(config["output_dir"])

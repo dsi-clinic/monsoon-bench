@@ -47,7 +47,8 @@ def calculate_cmz_averages(
     lon_grid, lat_grid = np.meshgrid(lons, lats)
     points = np.column_stack((lon_grid.ravel(), lat_grid.ravel()))
     inside_polygon = polygon_path.contains_points(
-        points, radius=-.01 #Negative radius to include border points
+        points,
+        radius=-0.01,  # Negative radius to include border points
     ).reshape(lon_grid.shape)
 
     values_inside = data_array.to_numpy()[inside_polygon]
@@ -505,14 +506,15 @@ def datetime_to_day(dt: np.datetime64) -> int:
     """Convert a numpy.datetime64 object to day-of-year index (Jan 1 = 0)."""
     # Ensure day precision
     dt = dt.astype("datetime64[D]")
-    
+
     # Get start of year
     start_of_year = dt.astype("datetime64[Y]").astype("datetime64[D]")
-    
+
     # Compute difference in days
     day_index = (dt - start_of_year).astype(int)
-    
+
     return int(day_index)
+
 
 def day_to_daystr(day: int, year: int) -> str:
     """Convert day-of-year index (Jan 1 = 0) into string like 'Jan 1'.
@@ -526,8 +528,11 @@ def day_to_daystr(day: int, year: int) -> str:
 
     return f"{py_date.strftime('%b')} {py_date.day}"
 
-def compare_onset_map(clim_onset, model_onset, model_name, year, province_num, rainfall_path, shpfile_path) -> tuple[plt.Figure, np.ndarray]:
-    """Generate a 2x3 grid of rainfall data maps.
+
+def compare_onset_map(
+    clim_onset, model_onset, model_name, year, province_num, rainfall_path, shpfile_path
+) -> tuple[plt.Figure, np.ndarray]:
+    """Generates a 2x3 grid of rainfall data maps.
 
     Row 1: Climatological onset date, +5 days, +10 days
     Row 2: Model predicted onset date, +5 days, +10 days
@@ -554,8 +559,12 @@ def compare_onset_map(clim_onset, model_onset, model_name, year, province_num, r
     polygon1_lat = np.array([18, 18, 22, 22, 30, 30, 26, 26, 18])
 
     # Create cell-edge arrays for pcolormesh
-    lon_edges = np.concatenate([lons - (lons[1] - lons[0]) / 2, [lons[-1] + (lons[1] - lons[0]) / 2]])
-    lat_edges = np.concatenate([lats - (lats[1] - lats[0]) / 2, [lats[-1] + (lats[1] - lats[0]) / 2]])
+    lon_edges = np.concatenate(
+        [lons - (lons[1] - lons[0]) / 2, [lons[-1] + (lons[1] - lons[0]) / 2]]
+    )
+    lat_edges = np.concatenate(
+        [lats - (lats[1] - lats[0]) / 2, [lats[-1] + (lats[1] - lats[0]) / 2]]
+    )
     LON_edges, LAT_edges = np.meshgrid(lon_edges, lat_edges)
 
     # Style parameters
@@ -572,10 +581,20 @@ def compare_onset_map(clim_onset, model_onset, model_name, year, province_num, r
     offsets = [0, 5, 10]
 
     # --- Helper function ---
-    def plot_rainfall_panel(ax, rainfall, lons, lats, title, show_ylabel=False, highlight_coord=None):
+    def plot_rainfall_panel(
+        ax, rainfall, lons, lats, title, show_ylabel=False, highlight_coord=None
+    ):
         """Plot a single rainfall panel with India outline, CMZ polygon, and annotations."""
         masked = np.ma.masked_invalid(rainfall)
-        pcm = ax.pcolormesh(LON_edges, LAT_edges, masked, cmap="OrRd", vmin=vmin, vmax=vmax, shading="flat")
+        pcm = ax.pcolormesh(
+            LON_edges,
+            LAT_edges,
+            masked,
+            cmap="OrRd",
+            vmin=vmin,
+            vmax=vmax,
+            shading="flat",
+        )
 
         # India outline
         for boundary in india_boundaries:
@@ -585,7 +604,9 @@ def compare_onset_map(clim_onset, model_onset, model_name, year, province_num, r
         # CMZ polygon
         polygon = Polygon(
             list(zip(polygon1_lon, polygon1_lat)),
-            fill=False, edgecolor="black", linewidth=polygon_lw,
+            fill=False,
+            edgecolor="black",
+            linewidth=polygon_lw,
         )
         ax.add_patch(polygon)
 
@@ -597,8 +618,13 @@ def compare_onset_map(clim_onset, model_onset, model_name, year, province_num, r
             dx = lons[1] - lons[0]
             dy = lats[1] - lats[0]
             rect = plt.Rectangle(
-                (cell_lon - dx / 2, cell_lat - dy / 2), dx, dy,
-                linewidth=2.5, edgecolor="blue", facecolor="none", zorder=5
+                (cell_lon - dx / 2, cell_lat - dy / 2),
+                dx,
+                dy,
+                linewidth=2.5,
+                edgecolor="blue",
+                facecolor="none",
+                zorder=5,
             )
             ax.add_patch(rect)
 
@@ -608,8 +634,16 @@ def compare_onset_map(clim_onset, model_onset, model_name, year, province_num, r
                 value = rainfall[ii, jj]
                 if not np.isnan(value):
                     text_color = "white" if value > (vmax - vmin) / 2 else "black"
-                    ax.text(lon, lat, f"{value:.1f}", ha="center", va="center",
-                            color=text_color, fontsize=txt_fsize, fontweight="normal")
+                    ax.text(
+                        lon,
+                        lat,
+                        f"{value:.1f}",
+                        ha="center",
+                        va="center",
+                        color=text_color,
+                        fontsize=txt_fsize,
+                        fontweight="normal",
+                    )
 
         # Axis styling
         ax.set_xlim([lons.min() - 2, lons.max() + 2])
@@ -629,7 +663,13 @@ def compare_onset_map(clim_onset, model_onset, model_name, year, province_num, r
             ax.set_yticks([])
             ax.set_yticklabels([])
 
-        ax.tick_params(axis="both", which="major", labelsize=10, length=tick_length, width=tick_width)
+        ax.tick_params(
+            axis="both",
+            which="major",
+            labelsize=10,
+            length=tick_length,
+            width=tick_width,
+        )
         for side in ["top", "right", "bottom", "left"]:
             ax.spines[side].set_linewidth(panel_linewidth)
         ax.set_aspect("equal", adjustable="box")
@@ -646,16 +686,34 @@ def compare_onset_map(clim_onset, model_onset, model_name, year, province_num, r
         day_idx = int(clim_onset_date + offset)
         rainfall = rain_data["RAINFALL"].values[day_idx]
         title = f"Climatological ({day_to_daystr(day_idx, year)})"
-        pcm_clim = plot_rainfall_panel(axes[0, col], rainfall, lons, lats, title,
-                                    show_ylabel=(col == 0), highlight_coord=(i, j))
+        pcm_clim = plot_rainfall_panel(
+            axes[0, col],
+            rainfall,
+            lons,
+            lats,
+            title,
+            show_ylabel=(col == 0),
+            highlight_coord=(i, j),
+        )
 
     # Row 2: Model onset
     for col, offset in enumerate(offsets):
         day_idx = int(model_onset_date + offset)
         rainfall = rain_data["RAINFALL"].values[day_idx]
-        title = f"{model_name} Model ({day_to_daystr(day_idx, year)})" if offset else f"{model_name} Model (Day {day_to_daystr(day_idx, year)})"
-        pcm_model = plot_rainfall_panel(axes[1, col], rainfall, lons, lats, title,
-                                    show_ylabel=(col == 0), highlight_coord=(i, j))
+        title = (
+            f"{model_name} Model ({day_to_daystr(day_idx, year)})"
+            if offset
+            else f"{model_name} Model (Day {day_to_daystr(day_idx, year)})"
+        )
+        pcm_model = plot_rainfall_panel(
+            axes[1, col],
+            rainfall,
+            lons,
+            lats,
+            title,
+            show_ylabel=(col == 0),
+            highlight_coord=(i, j),
+        )
 
     # One colorbar per row
     cbar1 = fig.colorbar(pcm_clim, ax=axes[0, :].tolist(), fraction=0.02, pad=0.02)
@@ -666,6 +724,10 @@ def compare_onset_map(clim_onset, model_onset, model_name, year, province_num, r
     cbar2.set_label("Rainfall (mm)", fontsize=12)
     cbar2.ax.tick_params(labelsize=9)
 
-    plt.suptitle(f"Rainfall Comparison at Predicted Onset Date — Province {province_num}, Year {year}", fontsize=15, y=1.01)
+    plt.suptitle(
+        f"Rainfall Comparison at Predicted Onset Date — Province {province_num}, Year {year}",
+        fontsize=15,
+        y=1.01,
+    )
     plt.show()
     return fig, axes
