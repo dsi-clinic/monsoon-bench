@@ -11,9 +11,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import xarray as xr
-from metrics import OnsetMetricsBase
 from scipy import stats
-from spatial.regions import points_inside_polygon
+
+from monsoonbench.spatial.regions import points_inside_polygon
+
+from .base import OnsetMetricsBase
 
 
 class ProbabilisticOnsetMetrics(OnsetMetricsBase):
@@ -88,8 +90,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
 
     @staticmethod
     def get_forecast_probabilistic_twice_weekly_2(yr, model_forecast_dir, mem_num, date_filter_year = 2024, file_pattern="tp_4p0_{}.nc"):
-        """Loads model precip data for twice-weekly initializations from May to July.
-        """
+        """Loads model precip data for twice-weekly initializations from May to July."""
         fname = file_pattern.format(yr)
         file_path = os.path.join(model_forecast_dir, fname)
 
@@ -591,7 +592,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
                     # Get observed onset date for this location
                     try:
                         obs_onset = onset_da.isel(lat=i, lon=j).values
-                    except:
+                    except Exception:
                         skipped_no_obs += len(members)
                         continue
                     
@@ -755,10 +756,9 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
                     members_with_onset_in_bin = 0
                     total_members = len(group)
                     
-                    for member_idx, member_row in group.iterrows():
-                        member_onset_day = member_row["onset_day"]
-                        
+                    for _member_idx, row  in group.iterrows():
                         # Member predicts "after day X" if onset_day is NaN or > max_forecast_day
+                        member_onset_day = row["onset_day"]
                         if (
                             pd.isna(member_onset_day)
                             or member_onset_day > max_forecast_day
@@ -784,7 +784,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
                     members_with_onset_in_bin = 0
                     total_members = len(group)
                     
-                    for member_idx, member_row in group.iterrows():
+                    for _member_idx, member_row in group.iterrows():
                         member_onset_day = member_row["onset_day"]
                         
                         if pd.notna(member_onset_day) and bin_start <= member_onset_day <= bin_end:
@@ -864,6 +864,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
             mok: Whether to apply MOK-specific logic.
             date_filter_year: Year used to filter dates (default: 2024).
             file_pattern: Filename pattern for NetCDF files (default: "{}.nc").
+            cmz_only: bool whether to get forecast pairs form only cmv (default: False)
         """
         print(f"Processing years: {years}")
 

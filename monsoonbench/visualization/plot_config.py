@@ -5,8 +5,8 @@ Usage:
     plt.rcParams.update(params)
 """
 
-import subprocess
 import shutil
+import subprocess
 import warnings
 
 # ============================================================================
