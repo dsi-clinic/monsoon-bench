@@ -22,6 +22,22 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
     """Probabilistic model specific onset metrics calculations."""
 
     @staticmethod
+    def _ensure_member_dimension(
+        ds: xr.Dataset, default_members: int = 4
+    ) -> xr.Dataset:
+        """Ensure an ensemble member dimension exists and is named 'member'."""
+        if "member" in ds.dims:
+            # Some files may include both "member" and an auxiliary ensemble
+            # dimension (e.g., "number"/"sample"), which would make a rename fail.
+            # In that case, keep the canonical "member" dimension as-is.
+            return ds
+        if "number" in ds.dims:
+            return ds.rename({"number": "member"})
+        if "sample" in ds.dims:
+            return ds.rename({"sample": "member"})
+        return ds.expand_dims(member=np.arange(default_members))
+
+    @staticmethod
     def get_forecast_probabilistic_twice_weekly(yr, model_forecast_dir):
         """Load model precip data for twice-weekly initializations from May to July.
 
@@ -304,7 +320,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
 
                                         # If MOK flag is True, only count onset if it's on or after June 2nd
                                         if mok:
-                                            if forecast_date.date() > mok_date.date():
+                                            if forecast_date.date() >= mok_date.date():
                                                 member_onset_day = day
                                                 break  # Found valid onset after MOK date
                                             # else: continue checking later days
@@ -333,9 +349,10 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
                     ensemble_onset_day = None
                     ensemble_onset_date = None
                     if onset_percentage >= 0.5:  # At least 50% of members have onset
-                        # Use rounding of mean onset day
+                        # Paper-aligned deterministic conversion for probabilistic
+                        # forecasts: use the ceiling of the mean onset day.
                         mean_onset = np.mean(valid_onsets)
-                        ensemble_onset_day = int(round(mean_onset))
+                        ensemble_onset_day = int(np.ceil(mean_onset))
                         ensemble_onsets_found += 1
                         ensemble_onset_date = init_date + pd.Timedelta(
                             days=ensemble_onset_day
@@ -655,7 +672,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
 
                                     # If MOK flag is True, only count onset if it's on or after June 2nd
                                     if mok:
-                                        if forecast_date.date() > mok_date.date():
+                                        if forecast_date.date() >= mok_date.date():
                                             onset_day = day
                                             break
                                     else:
