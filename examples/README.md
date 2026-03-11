@@ -9,6 +9,7 @@ This directory contains example notebooks demonstrating how to use MonsoonBench 
   - `researcher_use_case_benchmark.ipynb` - Comprehensive benchmarking example
   - `compare_models.ipynb` - Multi-model comparison
   - `exploratory_onset_timeseries.ipynb` - Step-by-step onset diagnostics and cross-type comparison walkthrough
+  - `subgrid_onset_variability.ipynb` - Reproduction walkthrough for the paper's Figure 14 (subgrid onset variability)
   - `outputs/` - Generated visualizations and results
 
 - **`exploratory_notebooks/`** - Development and experimental notebooks

@@ -14,9 +14,13 @@ from monsoonbench.visualization.compare_models import (
 )
 from monsoonbench.visualization.data_downloader import download_spatial_metrics_data
 from monsoonbench.visualization.spatial import plot_spatial_metrics
+from monsoonbench.visualization.subgrid_variability import (
+    plot_subgrid_variability_map_pair,
+)
 
 __all__ = [
     "plot_spatial_metrics",
+    "plot_subgrid_variability_map_pair",
     "create_model_comparison_table",
     "plot_model_comparison_dual_axis",
     "compare_models",
