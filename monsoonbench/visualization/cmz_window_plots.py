@@ -118,7 +118,9 @@ def plot_multi_model_window_deltas(
         if metric not in delta_for_plot:
             raise ValueError(f"Missing metric '{metric}' in delta_for_plot.")
 
-    fig, axes = plt.subplots(1, 3, figsize=(13.8, 5.2), dpi=170, constrained_layout=True)
+    fig, axes = plt.subplots(
+        1, 3, figsize=(13.8, 5.2), dpi=170, constrained_layout=True
+    )
 
     for ax, (metric, vmin, vmax, boundaries, ticks) in zip(axes, panel_specs):
         metric_df = delta_for_plot[metric].loc[model_order, window_labels]
@@ -137,7 +139,9 @@ def plot_multi_model_window_deltas(
         ax.set_xticklabels(window_labels, fontsize=10)
         ax.set_yticks(np.arange(len(model_order)))
         if ax is axes[0]:
-            ax.set_yticklabels([model_labels[name] for name in model_order], fontsize=14)
+            ax.set_yticklabels(
+                [model_labels[name] for name in model_order], fontsize=14
+            )
         else:
             ax.set_yticklabels([])
 
@@ -172,7 +176,9 @@ def plot_multi_model_window_deltas(
         colorbar.set_ticks(ticks)
 
     axes[1].set_xlabel("Forecast window (days)", fontsize=14)
-    fig.text(0.5, -0.02, "(Blue = Better, Red = Worse)", ha="center", va="top", fontsize=12)
+    fig.text(
+        0.5, -0.02, "(Blue = Better, Red = Worse)", ha="center", va="top", fontsize=12
+    )
 
     if save_path is not None:
         save_path.parent.mkdir(parents=True, exist_ok=True)

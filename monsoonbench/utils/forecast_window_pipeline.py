@@ -72,7 +72,16 @@ PAPER_YEARS_BY_MODEL_4DEG: dict[str, list[int]] = {
     "graphcast": [2019, 2020, 2021, 2022, 2023, 2024],
 }
 
-MAT_MODEL_ORDER = ["clim", "ifs", "aifs", "fuxi", "graphcast", "gencast", "fuxis2s", "ngcm51"]
+MAT_MODEL_ORDER = [
+    "clim",
+    "ifs",
+    "aifs",
+    "fuxi",
+    "graphcast",
+    "gencast",
+    "fuxis2s",
+    "ngcm51",
+]
 MODEL_TO_MAT_NAME = {
     "ifs": "ifs",
     "aifs": "aifs",
@@ -447,12 +456,14 @@ def compute_window_delta_table(
             if config.model_type == "probabilistic":
                 if config.mem_num is None:
                     raise ValueError("`mem_num` is required for probabilistic models.")
-                p_model, init_times = probabilistic.get_forecast_probabilistic_twice_weekly_2(
-                    year,
-                    str(config.model_forecast_dir),
-                    config.mem_num,
-                    date_filter_year=config.date_filter_year,
-                    file_pattern=config.file_pattern,
+                p_model, init_times = (
+                    probabilistic.get_forecast_probabilistic_twice_weekly_2(
+                        year,
+                        str(config.model_forecast_dir),
+                        config.mem_num,
+                        date_filter_year=config.date_filter_year,
+                        file_pattern=config.file_pattern,
+                    )
                 )
                 p_model = p_model.sel(lat=inside_lats, lon=inside_lons)
             elif config.model_type == "deterministic":
@@ -684,7 +695,9 @@ def build_model_run_config(
             spec.get("date_filter_year", base_config.get("date_filter_year", 2024))
         ),
         file_pattern=str(base_config.get("file_pattern", "{}.nc")),
-        temporal_agg_mode=str(base_config.get("temporal_agg_mode", "year_then_average")),
+        temporal_agg_mode=str(
+            base_config.get("temporal_agg_mode", "year_then_average")
+        ),
         use_legacy_cmz_polygon=bool(base_config.get("use_legacy_cmz_polygon", True)),
         strict_year_failures=bool(base_config.get("strict_year_failures", False)),
         scoring=scoring_cfg,
@@ -755,7 +768,7 @@ def run_multi_model_window_analysis(
     per_model_delta_tables: dict[str, pd.DataFrame] = {}
     baseline_conflicts: list[tuple[Any, ...]] = []
 
-    for model_name, spec in model_specs.items():
+    for model_name in model_specs:
         if model_name not in years_map:
             raise ValueError(f"Missing paper years for model '{model_name}'.")
         if model_name not in MODEL_TO_MAT_NAME:
