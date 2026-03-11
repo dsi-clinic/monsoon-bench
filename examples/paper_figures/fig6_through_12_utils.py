@@ -12,11 +12,11 @@ import xarray as xr
 from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Polygon
 
+from examples.paper_figures.plot_config import params
 from monsoonbench.metrics.climatology import ClimatologyOnsetMetrics
 from monsoonbench.metrics.deterministic import DeterministicOnsetMetrics
 from monsoonbench.metrics.probabilistic import ProbabilisticOnsetMetrics
 from monsoonbench.spatial.regions import get_india_outline
-from examples.paper_figures.plot_config import params
 
 warnings.filterwarnings("ignore")
 
