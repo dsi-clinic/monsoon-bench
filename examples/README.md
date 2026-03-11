@@ -4,16 +4,19 @@ This directory contains example notebooks demonstrating how to use MonsoonBench 
 
 ## Directory Structure
 
-- **`demo_notebooks/`** - Interactive Jupyter notebook demonstrations
+- **`demo_notebooks/`** - Interactive user-facing walkthroughs
   - `package_walkthrough.ipynb` - Basic package usage and workflow
   - `researcher_use_case_benchmark.ipynb` - Comprehensive benchmarking example
   - `compare_models.ipynb` - Multi-model comparison
-  - `exploratory_onset_timeseries.ipynb` - Step-by-step onset diagnostics and cross-type comparison walkthrough
-  - `forecast_window_delta_analysis.ipynb` - Forecast-window delta workflow for reproducing paper Figure 3
-  - `subgrid_onset_variability.ipynb` - Reproduction walkthrough for the paper's Figure 14 (subgrid onset variability)
-  - `outputs/` - Generated visualizations and results
+  - `outputs/` - Generated visualizations and results for demo notebooks
 
-- **`exploratory_notebooks/`** - Development and experimental notebooks
+- **`paper_figures/`** - Notebooks and utilities for reproducing paper figures
+  - `forecast_window_delta_analysis.ipynb` - Reproduction workflow for paper Figure 3
+  - `subgrid_onset_variability.ipynb` - Reproduction walkthrough for paper Figure 14
+  - `fig1.ipynb`, `fig4.ipynb` and helper utilities
+
+- **`exploratory_notebooks/`** - Development and analysis notebooks
+  - `onset_timeseries_diagnostics.ipynb` - Step-by-step onset diagnostics and cross-type comparison walkthrough
 
 ## Quick Start
 
@@ -38,7 +41,7 @@ This notebook demonstrates production-ready analysis suitable for research paper
 
 ### 3. Exploratory Onset Time-Series Walkthrough
 
-Use `demo_notebooks/exploratory_onset_timeseries.ipynb` when you need a compact,
+Use `exploratory_notebooks/onset_timeseries_diagnostics.ipynb` when you need a compact,
 interpretable workflow for:
 - single-point onset diagnostics (raw rainfall -> onset trigger visualization)
 - deterministic vs probabilistic comparison at the same point/year
@@ -60,13 +63,13 @@ docker run -it --rm \
   jupyter lab --ip=0.0.0.0 --allow-root --no-browser
 ```
 
-Then open the provided URL in your browser and navigate to `examples/demo_notebooks/`.
+Then open the provided URL in your browser and navigate to `examples/`.
 
 ### Locally with uv
 
 ```bash
 # From the project root
-uv run jupyter lab examples/demo_notebooks/
+uv run jupyter lab examples/
 ```
 
 ## Data Requirements
@@ -138,4 +141,7 @@ The notebooks generate:
 - Sensitivity analysis plots (MOK dates, verification windows)
 - Model agreement/disagreement visualizations
 
-All outputs are saved to `demo_notebooks/outputs/` as high-resolution PNG files suitable for presentations and publications.
+Outputs are saved under notebook-specific output directories (for example
+`demo_notebooks/outputs/`, `paper_figures/outputs/`, and
+`exploratory_notebooks/outputs/`) as high-resolution artifacts suitable for
+presentations and publications.
