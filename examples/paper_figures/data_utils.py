@@ -431,7 +431,7 @@ def save_all_data(model_paths: dict[str, str], config: dict[str, str]) -> None:
     )
 
     print("Loading Climatoligcal Data")
-    clim_data = get_climatological_dfs()
+    clim_data = get_climatological_dfs(config=config)
     clim_df_15, clim_onset_15 = clim_data["15_day"]
     clim_df_15_ex, clim_onset_15_ex = clim_data["15_day_ex"]
     clim_df_30, clim_onset_30 = clim_data["30_day"]
