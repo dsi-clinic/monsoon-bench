@@ -12,6 +12,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from scipy import stats
+import itertools
+
 
 from monsoonbench.spatial.regions import points_inside_polygon
 
@@ -1503,3 +1505,161 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
                 print(f"  {bin_name}: Missing data")
 
         return skill_scores
+    
+    @staticmethod
+    def fig6_compute_onset_for_all_members(
+        p_model, thresh_slice, onset_da, max_forecast_day=15, mok=True
+    ):
+        """Compute onset dates for each ensemble member, initialization time, and grid point."""
+        window = 5
+        results_list = []
+
+        # Get dimensions
+        init_times = p_model.init_time.values
+        members = p_model.member.values
+
+        # Get the actual lat/lon coordinates from the data
+        lats = p_model.lat.values
+        lons = p_model.lon.values
+
+        # Create unique lat-lon pairs (no repetition)
+        # unique_pairs = list(zip(lons, lats))
+        unique_pairs = list(itertools.product(lons, lats))
+
+        date_method = "MOK (June 2nd filter)" if mok else "no date filter"
+        print(
+            f"Processing {len(init_times)} init times x {len(unique_pairs)} unique locations x {len(members)} members..."
+        )
+        # print(f"Unique lat-lon pairs: {unique_pairs}")
+        print(f"Using {date_method} for onset detection")
+
+        max_steps_needed = max_forecast_day + window - 1
+
+        # Track statistics
+        total_potential_forecasts = 0
+        valid_forecasts = 0
+        skipped_no_obs = 0
+        skipped_late_init = 0
+
+        # Loop over all combinations
+        for t_idx, init_time in enumerate(init_times):
+            if t_idx % 5 == 0:
+                print(
+                    f"Processing init time {t_idx + 1}/{len(init_times)}: {pd.to_datetime(init_time).strftime('%Y-%m-%d')}"
+                )
+
+            init_date = pd.to_datetime(init_time)
+            year = init_date.year
+            mok_date = datetime(year, 6, 2)
+
+            # Loop over unique lat-lon pairs only
+            for lon in lons:
+                for lat in lats:    
+                    total_potential_forecasts += len(members)
+
+                    # Get observed onset date for this location
+                    try:
+                        obs_onset = onset_da.sel(lat=lat, lon=lon).values
+                    except Exception:
+                        skipped_no_obs += len(members)
+                        continue
+
+                    # Skip if no observed onset
+                    if pd.isna(obs_onset):
+                        skipped_no_obs += len(members)
+                        continue
+
+                    # Convert observed onset to datetime
+                    obs_onset_dt = pd.to_datetime(obs_onset)
+
+                    # Only process if forecast was initialized before observed onset
+                    if init_date >= obs_onset_dt:
+                        skipped_late_init += len(members)
+                        continue
+
+                    # Get threshold for this location
+                    thresh = thresh_slice.sel(lat=lat, lon=lon).values
+
+                    for m_idx, member in enumerate(members):
+                        valid_forecasts += 1
+
+                        try:
+                            # Extract forecast time series for this member and location
+                            forecast_series = p_model.sel(
+                                init_time=init_time,
+                                lat=lat,
+                                lon=lon,
+                                member=member,
+                                step=slice(0, max_steps_needed),
+                            ).values
+
+                            if len(forecast_series) < max_steps_needed:
+                                continue
+
+                            # Check for onset on each possible day
+                            onset_day = None
+
+                            for day in range(1, max_forecast_day + 1):
+                                start_idx = day - 1
+                                end_idx = start_idx + window
+
+                                if end_idx <= len(forecast_series):
+                                    window_series = forecast_series[start_idx:end_idx]
+
+                                    # Check basic onset condition
+                                    if (
+                                        window_series[0] > 1
+                                        and np.nansum(window_series) > thresh
+                                    ):
+                                        # Calculate the actual date this forecast day represents
+                                        forecast_date = init_date + pd.Timedelta(days=day)
+
+                                        # If MOK flag is True, only count onset if it's on or after June 2nd
+                                        if mok:
+                                            if forecast_date.date() >= mok_date.date():
+                                                onset_day = day
+                                                break
+                                        else:
+                                            onset_day = day
+                                            break
+
+                            # Store result
+                            result = {
+                                "init_time": init_time,
+                                "lat": lat,
+                                "lon": lon,
+                                "member": member,
+                                "onset_day": onset_day,
+                                "obs_onset_date": obs_onset_dt.strftime("%Y-%m-%d"),
+                            }
+                            results_list.append(result)
+
+                        except Exception as e:
+                            print(
+                                f"Error at init_time {t_idx}, location ({lon}, {lat}), member {m_idx}: {e}"
+                            )
+                            continue
+
+        # Convert to DataFrame
+        onset_df = pd.DataFrame(results_list)
+
+        print("\nProcessing Summary:")
+        print(f"Total potential forecasts: {total_potential_forecasts}")
+        print(f"Skipped (no observed onset): {skipped_no_obs}")
+        print(f"Skipped (initialized after observed onset): {skipped_late_init}")
+        print(f"Valid forecasts processed: {valid_forecasts}")
+        print(f"Generated {len(onset_df)} member-forecast combinations")
+        print(f"Found onset in {onset_df['onset_day'].notna().sum()} cases")
+        print(f"Onset rate: {onset_df['onset_day'].notna().mean():.3f}")
+
+        # Check for uniqueness
+        unique_combinations = onset_df.groupby(
+            ["init_time", "lat", "lon", "member"]
+        ).size()
+        if (unique_combinations > 1).any():
+            print(
+                f"Warning: Found {(unique_combinations > 1).sum()} duplicate combinations!"
+            )
+        else:
+            print("✓ All init_time-lat-lon-member combinations are unique")
+        return onset_df
