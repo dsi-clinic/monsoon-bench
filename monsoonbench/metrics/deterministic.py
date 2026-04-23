@@ -181,7 +181,7 @@ class DeterministicOnsetMetrics(OnsetMetricsBase):
                                         )
 
                                         if mok:
-                                            if forecast_date.date() >= mok_date.date():
+                                            if forecast_date.date() > mok_date.date():
                                                 onset_day = day
                                                 break
                                         else:

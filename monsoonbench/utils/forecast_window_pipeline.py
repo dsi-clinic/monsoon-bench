@@ -53,13 +53,14 @@ __all__ = [
 ]
 
 DEFAULT_WINDOW_BINS: list[tuple[int, int]] = [
-    (1, 5),
-    (6, 10),
-    (11, 15),
-    (16, 20),
-    (21, 25),
-    (26, 30),
+    (1, 6),
+    (5, 10),
+    (10, 15),
+    (16, 21),
+    (21, 26),
+    (26, 31),
 ]
+
 DEFAULT_WINDOW_TOLERANCE: list[int] = [2, 2, 3, 3, 5, 5]
 
 PAPER_YEARS_BY_MODEL_4DEG: dict[str, list[int]] = {
@@ -163,7 +164,9 @@ def coverage_preview_columns() -> list[str]:
     ]
 
 
-def get_default_four_degree_model_specs(data_dir: Path) -> dict[str, dict[str, Any]]:
+def get_default_four_degree_model_specs(
+        data_dir: Path, model_paths: dict[str, str]
+) -> dict[str, dict[str, Any]]:
     """Return default 4-degree model catalog used in paper-style analysis."""
     forecast_dir = data_dir / "model_forecast_data"
     return {
@@ -172,52 +175,49 @@ def get_default_four_degree_model_specs(data_dir: Path) -> dict[str, dict[str, A
             "expected_ens": 11,
             "mem_num": 11,
             "date_filter_year": 2024,
-            "path": forecast_dir / "IFS-S2S" / "tp_4p0",
+            "path": model_paths["IFS"],
         },
         "aifs": {
             "model_type": "deterministic",
             "expected_ens": None,
             "mem_num": None,
             "date_filter_year": 2024,
-            "path": forecast_dir / "aifs" / "daily_0z" / "tp_4p0",
+            "path": model_paths["AIFS"],
         },
         "fuxi": {
             "model_type": "deterministic",
             "expected_ens": None,
             "mem_num": None,
             "date_filter_year": 2024,
-            "path": forecast_dir / "fuxi" / "output_daily_paper_0z_4p0" / "tp_lsm",
+            "path": model_paths["FuXi"],
         },
         "graphcast": {
             "model_type": "deterministic",
             "expected_ens": None,
             "mem_num": None,
             "date_filter_year": 2024,
-            "path": forecast_dir
-            / "graphcast37"
-            / "output_twice_weekly_paper_0z_4p0"
-            / "tp_lsm",
+            "path": model_paths["Graphcast"],
         },
         "gencast": {
             "model_type": "probabilistic",
             "expected_ens": 51,
             "mem_num": 51,
             "date_filter_year": 2024,
-            "path": forecast_dir / "gencast52" / "tp_lsm_4p0",
+            "path": model_paths["GenCast"],
         },
         "fuxi-s2s": {
             "model_type": "probabilistic",
             "expected_ens": 51,
             "mem_num": 51,
             "date_filter_year": 2022,
-            "path": forecast_dir / "fuxi_s2s" / "tp_4p0",
+            "path": model_paths["FuXi-S2S"],
         },
         "ngcm": {
             "model_type": "probabilistic",
             "expected_ens": 51,
             "mem_num": 51,
             "date_filter_year": 2024,
-            "path": forecast_dir / "ngcm51" / "climatology" / "tp_4p0",
+            "path": model_paths["NGCM"],
         },
     }
 

@@ -605,7 +605,6 @@ def load_data_for_fig_6(parent_dir: str) -> list:
             mem_num=51 if model_name != "IFS" else 11,
             max_forecast_day=15,
             day_bins=[(1, 5), (6, 10), (11, 15)],
-            cmz_only=False,
             date_filter_year=2024 if model_name != "IFS" else 2022,
         )
         forecast_dfs_15[model_name] = multi_year_df
@@ -618,7 +617,6 @@ def load_data_for_fig_6(parent_dir: str) -> list:
             mem_num=51 if model_name != "IFS" else 11,
             max_forecast_day=30,
             day_bins=[(1, 10), (11, 20), (21, 30)],
-            cmz_only=False,
             date_filter_year=2024 if model_name != "IFS" else 2022,
         )
         forecast_dfs_30[model_name] = multi_year_df
