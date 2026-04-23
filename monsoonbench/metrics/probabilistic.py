@@ -320,7 +320,7 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
 
                                         # If MOK flag is True, only count onset if it's on or after June 2nd
                                         if mok:
-                                            if forecast_date.date() >= mok_date.date():
+                                            if forecast_date.date() > mok_date.date():
                                                 member_onset_day = day
                                                 break  # Found valid onset after MOK date
                                             # else: continue checking later days
@@ -352,7 +352,8 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
                         # Paper-aligned deterministic conversion for probabilistic
                         # forecasts: use the ceiling of the mean onset day.
                         mean_onset = np.mean(valid_onsets)
-                        ensemble_onset_day = int(np.ceil(mean_onset))
+                        # ensemble_onset_day = int(np.ceil(mean_onset)) #Problem?
+                        ensemble_onset_day = int(round(mean_onset)) #Solution?
                         ensemble_onsets_found += 1
                         ensemble_onset_date = init_date + pd.Timedelta(
                             days=ensemble_onset_day
