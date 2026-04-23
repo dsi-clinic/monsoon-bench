@@ -391,10 +391,6 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
                                 # Reset if before MOK date
                                 onset_day = None
                                 onset_date = None
-                        else:
-                            # No MOK filtering
-                            onset_date = clim_onset_date
-                            onsets_forecasted += 1
 
                     # Store result
                     result = {
@@ -520,9 +516,8 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
 
                 # Define forecast windows
                 valid_window_start = t_init + pd.Timedelta(days=verification_window)
-                valid_window_end = t_init + pd.Timedelta(days=forecast_days) #Problem?
-                #valid_window_end = valid_window_start + pd.Timedelta(days=14)  # Always 15 days long
-
+                #valid_window_end = t_init + pd.Timedelta(days=forecast_days) #Problem?
+                valid_window_end = valid_window_start + pd.Timedelta(days=14)  # Always 15 days long
 
                 whole_forecast_window_start = t_init + pd.Timedelta(days=1)
                 whole_forecast_window_end = t_init + pd.Timedelta(days=forecast_days)
@@ -557,10 +552,6 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
                         else:
                             FP += 1
                             mae_fp.append(abs_diff_days)
-                    else:
-                        # Forecast exists but falls outside the valid window — false alarm
-                        FP += 1
-                        mae_fp.append(abs((clim_forecast - obs_onset_dt).days))
 
                 else:
                     # Climatology had no forecast

@@ -30,7 +30,7 @@ EXTENDED_YEARS = {
     "IFS": np.arange(2019, 2024),
     "FuXi": np.concatenate((np.arange(1965, 1979), np.arange(2019, 2025))),
     "Graphcast": np.concatenate((np.arange(1965, 1979), np.arange(2019, 2025))),
-    "GenCast": np.arange(2019, 2025),
+    "GenCast": np.concatenate((np.arange(1965, 1979), np.arange(2019, 2025))),
     "FuXi-S2S": np.arange(2019, 2022),
     "NGCM": np.concatenate((np.arange(1965, 1979), np.arange(2019, 2025))),
 }
@@ -41,13 +41,9 @@ YEAR_RANGES_COM = {
     "IFS": np.arange(2004, 2022),
     "FuXi": np.arange(2004, 2022),
     "Graphcast": np.arange(2004, 2022),
-    "GenCast": np.arange(2019, 2022),
     "FuXi-S2S": np.arange(2004, 2022),
     "NGCM": np.arange(2004, 2022),
 }
-
-DETERMINISTIC_MODELS = ['IFS', 'AIFS', 'FuXi', 'Graphcast']
-PROBABILISTIC_MODELS = ['GenCast', 'FuXi-S2S', 'NGCM']
 
 def get_model_dfs(
     model_paths: dict[str, str],
@@ -81,7 +77,9 @@ def get_model_dfs(
 
     # Compute metrics for each model
     for model_name, model_fp in model_paths.items():
-        if model_name in PROBABILISTIC_MODELS:
+        if model_name not in year_ranges:
+            continue
+        try:
             model_df, onset_da_dict = p_metrics.compute_metrics_multiple_years(
                 years=year_ranges[model_name],
                 imd_folder=config["imd_folder"],
@@ -96,7 +94,7 @@ def get_model_dfs(
                 mok_month=6,
                 mok_day=2,
             )
-        else:
+        except:
             model_df, onset_da_dict = d_metrics.compute_metrics_multiple_years(
                 years=year_ranges[model_name],
                 imd_folder=config["imd_folder"],
