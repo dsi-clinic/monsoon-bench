@@ -60,6 +60,12 @@ rps_levels = np.array([-80, -60, -40, -20, 0, 20, 40, 60, 80])
 
 
 
+    # Define colors for MAE, FAR, and MR (matching your bar chart colors)
+mae_col = np.array([217, 95, 14]) / 256  # Orange
+far_col = np.array([49, 130, 189]) / 256  # Blue
+mr_col = np.array([188, 189, 220]) / 256  # Light purple
+    # Create figures for MAE, FAR, and MR
+
 model_years = {
     "FuXi S2S": [2019, 2020, 2021],
     "IFS": [2019, 2020, 2021, 2022, 2023],
@@ -1530,7 +1536,7 @@ def create_8_panel_figure(data, lon, lat,
         images.append(im)
         
         # Style the axis
-        ax.tick_params(axis='both', which='major', labelsize=label_fontsize, 
+        ax.tick_params(axis='both', which='major', labelsize=SMALL_SIZE, 
                       length=tick_length, width=tick_width)
         for side in ['top', 'right', 'bottom', 'left']:
             ax.spines[side].set_linewidth(panel_linewidth)
@@ -1586,20 +1592,6 @@ def create_8_panel_figure(data, lon, lat,
 
 
 def make_spatial_figs(mae_avg, far, mr, lon, lat):
-    panel_linewidth = 0.5  # Line width for panel borders
-    # Define plotting parameters
-    map_lw = 0.5
-    polygon_lw = 1
-    title_fontsize = 7
-    tick_length = 2.5
-    tick_width = 1
-    label_fontsize = SMALL_SIZE
-
-    # Define colors for MAE, FAR, and MR (matching your bar chart colors)
-    mae_col = np.array([217, 95, 14]) / 256  # Orange
-    far_col = np.array([49, 130, 189]) / 256  # Blue
-    mr_col = np.array([188, 189, 220]) / 256  # Light purple
-    # Create figures for MAE, FAR, and MR
     print("Creating 8-panel figures...")
         
     # MAE Figure - use YlOrRd colormap
