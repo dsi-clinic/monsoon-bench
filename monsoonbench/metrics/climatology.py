@@ -251,14 +251,14 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         return climatological_onset_da
 
     @staticmethod
-    def get_initialization_dates(year):
+    def get_initialization_dates(year, date_filter_year=2024):
         """Get initialization dates (Mondays and Thursdays from May-July).
 
         Uses the same logic as get_s2s_deterministic_twice_weekly but only returns dates.
         """
-        # Define date range from May 1 to July 31 of 2024 (template)
-        start_date = datetime(2024, 5, 1)
-        end_date = datetime(2024, 7, 31)
+        # Define date range from May 1 to July 31 of the filter year (template)
+        start_date = datetime(date_filter_year, 5, 1)
+        end_date = datetime(date_filter_year, 7, 31)
         date_range = pd.date_range(start_date, end_date, freq="D")
 
         # Find Mondays (weekday=0) and Thursdays (weekday=3)
@@ -626,6 +626,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         onset_window=5,
         mok_month=6,
         mok_day=2,
+        date_filter_year=2024,
     ):
         """Compute climatology baseline metrics for multiple years.
 
@@ -652,7 +653,9 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
             print(f"{'=' * 50}")
 
             # Get initialization dates for this year (same as model would use)
-            init_dates = ClimatologyOnsetMetrics.get_initialization_dates(year)
+            init_dates = ClimatologyOnsetMetrics.get_initialization_dates(
+                year, date_filter_year=date_filter_year
+            )
 
             # Load observed data for this year
             imd = OnsetMetricsBase.load_imd_rainfall(year, imd_folder)

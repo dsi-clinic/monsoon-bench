@@ -79,6 +79,10 @@ def get_model_dfs(
     for model_name, model_fp in model_paths.items():
         if model_name not in year_ranges:
             continue
+        if model_name == "FuXi-S2S":
+            date_filter_year=2022
+        else:
+            date_filter_year=2024
         try:
             model_df, onset_da_dict = p_metrics.compute_metrics_multiple_years(
                 years=year_ranges[model_name],
@@ -93,6 +97,7 @@ def get_model_dfs(
                 onset_window=5,
                 mok_month=6,
                 mok_day=2,
+                date_filter_year=date_filter_year,
             )
         except:
             model_df, onset_da_dict = d_metrics.compute_metrics_multiple_years(
@@ -108,6 +113,7 @@ def get_model_dfs(
                 onset_window=5,
                 mok_month=6,
                 mok_day=2,
+                date_filter_year=date_filter_year,
             )
 
         model_dfs[model_name] = model_df
@@ -206,6 +212,7 @@ def get_plot_metrics(
 
 def get_climatological_dfs(
     config: dict[str, str],
+    date_filter_year: int = 2024,
 ) -> dict[str, tuple[pd.DataFrame, xr.DataArray]]:
     """Get climatological dataframes and onset data arrays for all year ranges.
 
@@ -230,6 +237,7 @@ def get_climatological_dfs(
         onset_window=5,
         mok_month=6,
         mok_day=2,
+        date_filter_year=date_filter_year,
     )
 
     # Compute 15-day forecast data for the extended period
@@ -246,6 +254,7 @@ def get_climatological_dfs(
             onset_window=5,
             mok_month=6,
             mok_day=2,
+            date_filter_year=date_filter_year,
         )
     )
 
@@ -262,6 +271,7 @@ def get_climatological_dfs(
         onset_window=5,
         mok_month=6,
         mok_day=2,
+        date_filter_year=date_filter_year,
     )
 
     # Compute 30-day forecast data for the extended period
@@ -278,6 +288,7 @@ def get_climatological_dfs(
             onset_window=5,
             mok_month=6,
             mok_day=2,
+            date_filter_year=date_filter_year,
         )
     )
 
@@ -295,6 +306,7 @@ def get_climatological_dfs(
             onset_window=5,
             mok_month=6,
             mok_day=2,
+            date_filter_year=date_filter_year,
         )
     )
 
@@ -312,6 +324,7 @@ def get_climatological_dfs(
             onset_window=5,
             mok_month=6,
             mok_day=2,
+            date_filter_year=date_filter_year,
         )
     )
 

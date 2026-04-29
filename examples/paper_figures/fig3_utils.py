@@ -106,6 +106,10 @@ def get_model_window_data(
 
     # Compute metrics for each model
     for model_name, model_fp in model_paths.items():
+        if model_name.lower() == "fuxi-s2s":
+            date_filter_year=2022
+        else:
+            date_filter_year=2024
         try:
             probabilistic_df, onset_da_dict = metrics.compute_metrics_multiple_years(
                 years=year_ranges[model_name],
@@ -120,6 +124,7 @@ def get_model_window_data(
                 onset_window=5,
                 mok_month=6,
                 mok_day=2,
+                date_filter_year=date_filter_year,
             )
 
         except Exception:
@@ -136,6 +141,7 @@ def get_model_window_data(
                 onset_window=5,
                 mok_month=6,
                 mok_day=2,
+                date_filter_year=date_filter_year,
             )
 
         model_dfs[model_name] = probabilistic_df
