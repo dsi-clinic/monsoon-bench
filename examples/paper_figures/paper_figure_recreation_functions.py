@@ -1911,7 +1911,7 @@ def make_spatial_figs(mae_avg, far, mr, lon, lat,
     return mae_fig, far_fig, mr_fig
 
 
-def generate_fig_7_8_9(config):
+def generate_fig_7_9_11(config):
     """15-day spatial figures (MAE, FAR, MR)."""
 
     # Only need 15-day climatology
@@ -1992,7 +1992,7 @@ def generate_fig_7_8_9(config):
     # return None
 
 
-def generate_fig_10_11_12(config):
+def generate_fig_8_10_12(config):
     """30-day spatial figures (MAE, FAR, MR)."""
 
     # Only need 30-day climatology
