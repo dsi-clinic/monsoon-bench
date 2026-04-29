@@ -34,7 +34,7 @@ p = ProbabilisticOnsetMetrics()
 d = DeterministicOnsetMetrics()
 o = OnsetMetricsBase()
 
-model_str = ['Climatology', 'IFS', 'AIFS', 'FuXi', 'Graphcast', 'GenCast', 'FuXi S2S', 'NGCM']
+model_str = ['Climatology', 'IFS', 'AIFS', 'FuXi', 'Graphcast', 'GenCast', 'FuXi-S2S', 'NGCM']
 
 # Define the standard grid
 lat_grid = np.arange(8, 37, 4)  # 8:4:36
@@ -59,7 +59,6 @@ brier_levels = np.array([-40, -30, -20, -10, 0, 10, 20, 30, 40])
 rps_levels = np.array([-80, -60, -40, -20, 0, 20, 40, 60, 80])
 
 
-
     # Define colors for MAE, FAR, and MR (matching your bar chart colors)
 mae_col = np.array([217, 95, 14]) / 256  # Orange
 far_col = np.array([49, 130, 189]) / 256  # Blue
@@ -67,10 +66,29 @@ mr_col = np.array([188, 189, 220]) / 256  # Light purple
     # Create figures for MAE, FAR, and MR
 
 model_years = {
-    "FuXi S2S": [2019, 2020, 2021],
+    "FuXi-S2S": [2019, 2020, 2021],
     "IFS": [2019, 2020, 2021, 2022, 2023],
     "Standard": [2019, 2020, 2021, 2022, 2023, 2024],
 }
+
+PROB_MODELS = {"FuXi-S2S", "NGCM", "IFS", "GenCast"}
+
+DET_MODELS = {"AIFS", "FuXi", "Graphcast"}
+
+# Helpers
+def ensure_lat_lon_sorted(ds: xr.Dataset) -> xr.Dataset:
+    """Ensure consistent lat/lon ordering and alignment."""
+    return ds.sortby(["lat", "lon"])
+
+
+def spatial_dict_to_panels(spatial_dict, metric):
+    """
+    Convert dict[str, xr.Dataset] → list[list[xr.DataArray]]
+    Single row of 8 panels.
+    """
+    row = [ds[metric] for ds in spatial_dict.values()]
+    return row
+
 
 def points_inside_polygon(
     polygon_lon, polygon_lat, grid_lons, grid_lats
@@ -339,7 +357,7 @@ def get_fig_6_model_data(config):
             mem_num=51 if model_name != "IFS" else 11,
             max_forecast_day=15,
             day_bins=config["day_bins_15"],
-            date_filter_year=2024 if model_name != "IFS" else 2022,
+            date_filter_year=2022 if model_name == "FuXi-S2S" else 2024,
         )
         forecast_dfs_15[model_name] = multi_year_df
 
@@ -351,7 +369,7 @@ def get_fig_6_model_data(config):
             mem_num=51 if model_name != "IFS" else 11,
             max_forecast_day=30,
             day_bins=config["day_bins_30"],
-            date_filter_year=2024 if model_name != "IFS" else 2022,
+            date_filter_year=2022 if model_name == "FuXi-S2S" else 2024,
         )
         forecast_dfs_30[model_name] = multi_year_df
 
@@ -579,46 +597,91 @@ def get_clim_rps(df):
     return clim_rps
 
 
-def fig6_metric_calculation(forecast_df,
-                            clim_brier,
-                            clim_rps,
-                            n=15,
-                            model_name=None,
-                            ):
+# def fig6_metric_calculation(forecast_df,
+#                             clim_brier,
+#                             clim_rps,
+#                             n=15,
+#                             model_name=None,
+#                             ):
     
-    rows= []
+#     rows= []
+#     for lat in forecast_df.lat.unique():
+#         for lon in forecast_df.lon.unique():
+#             print("="*50)
+#             print(f"Calculating for {lat}, {lon} pair")
+#             print("="*50)
+#             row = {}
+#             loop_df = forecast_df.loc[
+#                 (forecast_df["lat"] == lat) & (forecast_df["lon"] == lon)
+#                 ].copy()
+#             if loop_df.empty:
+#                 continue
+#             else:
+#                 brier = p.calculate_brier_score(loop_df)
+#                 rps = p.calculate_rps(loop_df)
+#                 skill_scores = p.calculate_skill_scores(
+#                             brier_forecast=brier,
+#                             rps_forecast=rps,
+#                             brier_climatology=clim_brier,
+#                             rps_climatology=clim_rps,
+#                         )
+#                 row["fair_brier_skill"] = skill_scores["fair_brier_skill_score"]
+#                 row["fair_rps_skill"] = skill_scores["fair_rps_skill_score"]
+#                 row["lat"] = lat
+#                 row["lon"] = lon
+#                 row["horizon"] = n
+#                 if model_name:
+#                     row["dataset"] = model_name
+#                 rows.append(row)
+
+#     return pd.DataFrame(rows)
+                        
+
+def fig6_metric_calculation(forecast_df, clim_df, n=15, model_name=None):
+    rows = []
     for lat in forecast_df.lat.unique():
         for lon in forecast_df.lon.unique():
-            print("="*50)
-            print(f"Calculating for {lat}, {lon} pair")
-            print("="*50)
             row = {}
             loop_df = forecast_df.loc[
                 (forecast_df["lat"] == lat) & (forecast_df["lon"] == lon)
-                ].copy()
+            ].copy()
+
             if loop_df.empty:
-                print(f"Skipping {lat}, {lon} — no data")
                 continue
-            else:
-                brier = p.calculate_brier_score(loop_df)
-                rps = p.calculate_rps(loop_df)
-                skill_scores = p.calculate_skill_scores(
-                            brier_forecast=brier,
-                            rps_forecast=rps,
-                            brier_climatology=clim_brier,
-                            rps_climatology=clim_rps,
-                        )
-                row["fair_brier_skill"] = skill_scores["fair_brier_skill_score"]
-                row["fair_rps_skill"] = skill_scores["fair_rps_skill_score"]
-                row["lat"] = lat
-                row["lon"] = lon
-                row["horizon"] = n
-                if model_name:
-                    row["dataset"] = model_name
-                rows.append(row)
+
+            # Filter climatology to the same cell
+            clim_loop_df = clim_df.loc[
+                (clim_df["lat"] == lat) & (clim_df["lon"] == lon)
+            ].copy()
+
+            if clim_loop_df.empty:
+                continue
+
+            # Compute per-cell climatology scores
+            clim_brier = c.calculate_brier_score_climatology(clim_loop_df)  
+            clim_rps = p.calculate_rps(clim_loop_df)
+
+            brier = p.calculate_brier_score(loop_df)
+            rps = p.calculate_rps(loop_df)
+
+            skill_scores = p.calculate_skill_scores(
+                brier_forecast=brier,
+                rps_forecast=rps,
+                brier_climatology=clim_brier,
+                rps_climatology=clim_rps,
+            )
+
+            row["fair_brier_skill"] = skill_scores["fair_brier_skill_score"]
+            row["fair_rps_skill"] = skill_scores["fair_rps_skill_score"]
+            row["lat"] = lat
+            row["lon"] = lon
+            row["horizon"] = n
+            if model_name:
+                row["dataset"] = model_name
+            rows.append(row)
 
     return pd.DataFrame(rows)
-                        
+
 
 def create_gridded_data(df, metric, model, horizon):
     """
@@ -692,7 +755,11 @@ def create_skill_map_panel_xr(ax, data_array, model, metric_type,
     # Create edges for pcolormesh
     lat_edges = np.concatenate([lats - 2, [lats[-1] + 2]])
     lon_edges = np.concatenate([lons - 2, [lons[-1] + 2]])
-    
+    # lon_edges = np.concatenate([lon - (lon[1]-lon[0])/2, [lon[-1] + (lon[1]-lon[0])/2]])
+    # lat_edges = np.concatenate([lat - (lat[1]-lat[0])/2, [lat[-1] + (lat[1]-lat[0])/2]])
+    LON_edges, LAT_edges = np.meshgrid(lon_edges, lat_edges)
+
+        
     # Create discrete colormap and normalization
     if levels is not None:
         cmap, norm = create_discrete_colormap(levels, 'RdBu')
@@ -703,14 +770,14 @@ def create_skill_map_panel_xr(ax, data_array, model, metric_type,
         vmin, vmax = -100, 100
     
     # Create pcolormesh plot
-    im = ax.pcolormesh(lon_edges, lat_edges, data_array.values,
+    im = ax.pcolormesh(LON_edges, LAT_edges, data_array.values,
                       transform=ccrs.PlateCarree(),
                       cmap=cmap, norm=norm, vmin=vmin, vmax=vmax, shading='flat')
     
     # ...existing code for boundaries, polygon, etc...
     # Add India boundaries using the get_india_outline function
     try:
-        india_boundaries = get_india_outline(shp_file_path=config["shp_file"])
+        india_boundaries = get_india_outline(shp_file_path=config["shpfile_path"])
         for boundary in india_boundaries:
             india_lon, india_lat = boundary
             ax.plot(india_lon, india_lat, color='black', linewidth=map_lw, 
@@ -914,23 +981,97 @@ def create_skill_maps_figure_xr(df,
     plt.tight_layout()
     
     # Save the figure
-    plt.savefig('outputs/fig6.png', dpi=600, bbox_inches='tight')
-    plt.savefig('outputs/fig6.pdf', dpi=600, bbox_inches='tight')
+    # plt.savefig('outputs/fig6.png', dpi=600, bbox_inches='tight')
+    # plt.savefig('outputs/fig6.pdf', dpi=600, bbox_inches='tight')
 
     return fig, data_arrays
 
 
+# def generate_fig6(config, clim_onset):
+
+#     # Point 5 fix: actually call the functions with ()
+#     forecast_dfs_15, forecast_dfs_30 = get_fig_6_model_data(config)
+
+#     # Point 3 fix: build a separate climatology for each model using its own init dates
+#     clim_data = {}
+#     for model_name, model_fp in config["model_paths"].items():
+#         if model_name not in ["FuXi-S2S", "NGCM", "IFS"]:
+#             continue
+#         date_filter_year = 2022 if model_name == "IFS" else 2024
+#         mem_num = 11 if model_name == "IFS" else 51
+
+#         clim_15, clim_30 = get_fig_6_clim_data(
+#             clim_onset,
+#             config,
+#             model_forecast_dir=model_fp,
+#             date_filter_year=date_filter_year,
+#             mem_num=mem_num,
+#         )
+#         clim_data[model_name] = {"15": clim_15, "30": clim_30}
+
+#     fig6_metrics_dict_15 = {}
+#     fig6_metrics_dict_30 = {}
+
+#     for key, value in forecast_dfs_15.items():
+#         # Point 3 fix: use the model-specific climatology as reference
+#         model_clim_15 = clim_data[key]["15"]
+
+#         # Point 4 fix: exclude "earlier"-equivalent rows from Brier, keep all for RPS
+#         clim_brier_15 = get_clim_brier(
+#             model_clim_15
+#         )
+#         clim_rps_15 = get_clim_rps(model_clim_15)
+
+#         loop_ret = fig6_metric_calculation(
+#             value,
+#             clim_brier=clim_brier_15,
+#             clim_rps=clim_rps_15,
+#             n=15,
+#             model_name=key,
+#         )
+#         fig6_metrics_dict_15[key] = loop_ret
+
+#     for key, value in forecast_dfs_30.items():
+#         model_clim_30 = clim_data[key]["30"]
+
+#         clim_brier_30 = get_clim_brier(
+#             model_clim_30
+#         )
+#         clim_rps_30 = get_clim_rps(model_clim_30)
+
+#         loop_ret = fig6_metric_calculation(
+#             value,
+#             clim_brier=clim_brier_30,
+#             clim_rps=clim_rps_30,
+#             n=30,
+#             model_name=key,
+#         )
+#         fig6_metrics_dict_30[key] = loop_ret
+
+#     fig6_metrics_15 = pd.concat(fig6_metrics_dict_15.values())
+#     fig6_metrics_30 = pd.concat(fig6_metrics_dict_30.values())
+
+#     fig6_metrics = pd.concat([fig6_metrics_15, fig6_metrics_30])
+
+#     skill_fig, gridded_data = create_skill_maps_figure_xr(
+#         df=fig6_metrics,
+#         config=config,
+#     )
+#     plt.show()
+
+#     return skill_fig, gridded_data
+
+
 def generate_fig6(config, clim_onset):
 
-    # Point 5 fix: actually call the functions with ()
     forecast_dfs_15, forecast_dfs_30 = get_fig_6_model_data(config)
 
-    # Point 3 fix: build a separate climatology for each model using its own init dates
+    # Build a separate climatology for each model using its own init dates
     clim_data = {}
     for model_name, model_fp in config["model_paths"].items():
         if model_name not in ["FuXi-S2S", "NGCM", "IFS"]:
             continue
-        date_filter_year = 2022 if model_name == "IFS" else 2024
+        date_filter_year = 2022 if model_name == "FuXi-S2S" else 2024
         mem_num = 11 if model_name == "IFS" else 51
 
         clim_15, clim_30 = get_fig_6_clim_data(
@@ -946,19 +1087,12 @@ def generate_fig6(config, clim_onset):
     fig6_metrics_dict_30 = {}
 
     for key, value in forecast_dfs_15.items():
-        # Point 3 fix: use the model-specific climatology as reference
         model_clim_15 = clim_data[key]["15"]
 
-        # Point 4 fix: exclude "earlier"-equivalent rows from Brier, keep all for RPS
-        clim_brier_15 = get_clim_brier(
-            model_clim_15
-        )
-        clim_rps_15 = get_clim_rps(model_clim_15)
-
+        # Pass the full climatology DataFrame — scoring is now per-cell inside
         loop_ret = fig6_metric_calculation(
             value,
-            clim_brier=clim_brier_15,
-            clim_rps=clim_rps_15,
+            clim_df=model_clim_15,
             n=15,
             model_name=key,
         )
@@ -967,15 +1101,9 @@ def generate_fig6(config, clim_onset):
     for key, value in forecast_dfs_30.items():
         model_clim_30 = clim_data[key]["30"]
 
-        clim_brier_30 = get_clim_brier(
-            model_clim_30
-        )
-        clim_rps_30 = get_clim_rps(model_clim_30)
-
         loop_ret = fig6_metric_calculation(
             value,
-            clim_brier=clim_brier_30,
-            clim_rps=clim_rps_30,
+            clim_df=model_clim_30,
             n=30,
             model_name=key,
         )
@@ -983,7 +1111,6 @@ def generate_fig6(config, clim_onset):
 
     fig6_metrics_15 = pd.concat(fig6_metrics_dict_15.values())
     fig6_metrics_30 = pd.concat(fig6_metrics_dict_30.values())
-
     fig6_metrics = pd.concat([fig6_metrics_15, fig6_metrics_30])
 
     skill_fig, gridded_data = create_skill_maps_figure_xr(
@@ -1042,7 +1169,7 @@ def get_spatial_fig_clim_data(config, n=15):
 
 def get_spatial_fig_model_data(config, n=15):
     prob_model_paths = {
-        "FuXi S2S": config["model_paths"]["FuXi S2S"],  # FuXi_S2S model
+        "FuXi-S2S": config["model_paths"]["FuXi-S2S"],  # FuXi_S2S model
         "NGCM": config["model_paths"]["NGCM"],  # NGCM model
         "IFS": config["model_paths"]["IFS"],  # AIFS model
         "GenCast": config["model_paths"]["GenCast"],  # GenCast model
@@ -1090,7 +1217,7 @@ def get_spatial_fig_model_data(config, n=15):
                 print(f"Loading data from {model_name}")
                 print("=" * 80)
                 deterministic_df_15, onset_da_dict_15 = (
-                    d.compute_metrics_multiple_years(
+                    p.compute_metrics_multiple_years(
                         years=(
                             model_years[model_name]
                             if model_name in model_years.keys()
@@ -1147,7 +1274,7 @@ def get_spatial_fig_model_data(config, n=15):
             print(f"Loading data from {model_name}")
             print("=" * 80)
             deterministic_df_30, onset_da_dict_30 = (
-                d.compute_metrics_multiple_years(
+                p.compute_metrics_multiple_years(
                     years=(
                         model_years[model_name]
                         if model_name in model_years.keys()
@@ -1170,6 +1297,39 @@ def get_spatial_fig_model_data(config, n=15):
             model_dfs[model_name] = deterministic_df_30
             model_onsets[model_name] = onset_da_dict_30
         return model_dfs, model_onsets
+    
+def build_spatial_xarray_dict(config, model_dfs, model_onsets, clim_data):
+    """Return dict of xr.Dataset for each model, fully standardized."""
+    out={}
+
+    for model_name, df in model_dfs.items():
+        onset = model_onsets[model_name]
+
+        if model_name in PROB_MODELS:
+            ds = p.create_spatial_far_mr_mae(
+                df, onset
+            )
+        else:
+            ds = d.create_spatial_far_mr_mae(
+                df, onset
+                )
+            
+        ds["false_alarm_rate"] *= 100
+        ds["miss_rate"] *= 100
+        if isinstance(ds, dict):
+            ds = xr.Dataset(ds)
+
+        out[model_name] = ensure_lat_lon_sorted(ds)
+
+    clim_data = clim_data.copy()
+    clim_data["false_alarm_rate"] *= 100
+    clim_data["miss_rate"] *= 100
+
+    if isinstance(clim_data, dict):
+            clim_data = xr.Dataset(clim_data)
+    out["Climatology"] = ensure_lat_lon_sorted(clim_data)
+
+    return {k: out[k] for k in model_str if k in out}
 
 
 def format_data_for_spatial_fig(config,
@@ -1198,7 +1358,7 @@ def format_data_for_spatial_fig(config,
     dict
         Ordered dictionary mapping model name to spatial metrics xr.Dataset,
         with keys in paper figure order:
-        ['Climatology', 'IFS', 'AIFS', 'FuXi', 'Graphcast', 'GenCast', 'FuXi S2S', 'NGCM'].
+        ['Climatology', 'IFS', 'AIFS', 'FuXi', 'Graphcast', 'GenCast', 'FuXi-S2S', 'NGCM'].
     """
 
     def reorder_dict(dict) -> dict:
@@ -1210,14 +1370,14 @@ def format_data_for_spatial_fig(config,
                 "FuXi",
                 "Graphcast",
                 "GenCast",
-                "FuXi S2S",
+                "FuXi-S2S",
                 "NGCM",
             ]
         reordered_dict = {key: dict[key] for key in order}
         return reordered_dict
     
     prob_model_paths = {
-        "FuXi S2S": config["model_paths"]["FuXi S2S"],  # FuXi_S2S model
+        "FuXi-S2S": config["model_paths"]["FuXi-S2S"],  # FuXi_S2S model
         "NGCM": config["model_paths"]["NGCM"],  # NGCM model
         "IFS": config["model_paths"]["IFS"],  # AIFS model
         "GenCast": config["model_paths"]["GenCast"],  # GenCast model
@@ -1342,8 +1502,10 @@ def create_formatted_df_for_plot(spatial_figs_15: dict,
 
 
 def reformat_csv_as_grids(df, metric):
-    lats = df["lat"].unique()
-    lons = df["lon"].unique()
+    model_str = ['Climatology', 'IFS', 'AIFS', 'FuXi', 'Graphcast', 'GenCast', 'FuXi-S2S', 'NGCM']
+
+    lons = np.arange(68,101,4)
+    lats=np.arange(8,37,4)
     
     model_vals = df['model'].unique()
 
@@ -1388,7 +1550,9 @@ def get_grid_mae_far_mr(df):
 def create_map_panel_colored_stats(ax, data, lon, lat, model_idx, model_name, 
                                 #   mae_cmz_mean, std_er, far_cmz_mean, mr_cmz_mean,
                                   data_type='MAE', vmin=0, vmax=15, cmap='YlOrRd', n_colors=6, 
-                                  show_ylabel=True, show_xlabel=True, title=None):
+                                  show_ylabel=True, show_xlabel=True, title=None,
+                                  shpfile_path=None
+                                  ):
     """
     Create a map panel with colored statistics text for MAE, FAR, and MR
     """
@@ -1402,7 +1566,14 @@ def create_map_panel_colored_stats(ax, data, lon, lat, model_idx, model_name,
     # plt_ar = data[:, :, model_idx]
     # cmap = plt.cm.get_cmap(cmap, n_colors)
     # masked_data = np.ma.masked_invalid(plt_ar.T)
-    plt_ar = data[model_idx, :, :]
+    if isinstance(data, xr.DataArray):
+        plt_ar = data.values   # already (lat, lon)
+    else:
+        data = np.asarray(data)
+        if data.ndim == 3:
+            plt_ar = data[model_idx, :, :]
+        else:
+            plt_ar = data
     cmap = plt.cm.get_cmap(cmap, n_colors)
     masked_data = np.ma.masked_invalid(plt_ar)
     
@@ -1411,10 +1582,13 @@ def create_map_panel_colored_stats(ax, data, lon, lat, model_idx, model_name,
                        cmap=cmap, vmin=vmin, vmax=vmax, shading='flat')
     
     # Add India map outline
-    india_boundaries = get_india_outline('/Users/charlieeden/Desktop/Spring 2026/ds_clinic/monsoon-benchmark_data/ind_map_shpfile/india_shapefile.shp')
+    india_boundaries = get_india_outline(shp_file_path=shpfile_path)
     for boundary in india_boundaries:
         india_lon, india_lat = boundary
         ax.plot(india_lon, india_lat, color='black', linewidth=map_lw)
+
+    polygon1_lon = np.array([86, 74, 74, 70, 70, 82, 82, 86, 86])
+    polygon1_lat = np.array([18, 18, 22, 22, 30, 30, 26, 26, 18])
     
     # Add polygon for Core Monsoon Zone
     polygon = Polygon(list(zip(polygon1_lon, polygon1_lat)), 
@@ -1448,32 +1622,29 @@ def create_map_panel_colored_stats(ax, data, lon, lat, model_idx, model_name,
         ax.set_xticklabels(xticklabels)
     else:
         ax.set_xticklabels([])
+        
+    polygon1_lon = np.array([86, 74, 74, 70, 70, 82, 82, 86, 86])
+    polygon1_lat = np.array([18, 18, 22, 22, 30, 30, 26, 26, 18])
+    inside_mask, inside_lons, inside_lats = points_inside_polygon(
+        polygon1_lon, polygon1_lat, lon, lat
+        )
     
-    # Add ONLY the relevant metric text based on data_type
-    # Convert numpy arrays to scalars
-    # mae_val = mae_cmz_mean.flatten()[model_idx] if hasattr(mae_cmz_mean, 'flatten') else mae_cmz_mean[model_idx]
-    # std_val = std_er.flatten()[model_idx] if hasattr(std_er, 'flatten') else std_er[model_idx]
-    # far_val = far_cmz_mean.flatten()[model_idx] if hasattr(far_cmz_mean, 'flatten') else far_cmz_mean[model_idx]
-    # mr_val = mr_cmz_mean.flatten()[model_idx] if hasattr(mr_cmz_mean, 'flatten') else mr_cmz_mean[model_idx]
-    
-    # # Show only the relevant metric for each figure type
-    # if data_type == 'MAE':
-    #     metric_text = f'MAE: {mae_val:.1f}±{std_val:.1f}'
-    #     text_color = 'black'
-    # elif data_type == 'FAR':
-    #     metric_text = f'FAR: {far_val:.1f}%'
-    #     text_color = 'black'    
-    # elif data_type == 'MR':
-    #     metric_text = f'MR: {mr_val:.1f}%'
-    #     text_color = 'black'
-    # else:
-    #     metric_text = f'MAE: {mae_val:.1f}±{std_val:.1f}'
-    #     text_color = 'black'
+    polygon_data = np.where(inside_mask, plt_ar, np.nan)
+    cmz_mean = np.nanmean(polygon_data)
 
-    # Position the single metric text
-    # ax.text(0.96, 0.04, metric_text, transform=ax.transAxes,
-    #         color=text_color, verticalalignment='bottom', 
-    #         horizontalalignment='right', fontweight='normal', fontsize=MEDIUM_SIZE)
+    if data_type == 'MAE':
+        metric_text = f'MAE: {cmz_mean:.1f}'
+        text_color = 'black'
+    elif data_type == 'FAR':
+        metric_text = f'FAR: {cmz_mean:.1f}%'
+        text_color = 'black'    
+    elif data_type == 'MR':
+        metric_text = f'MR: {cmz_mean:.1f}%'
+        text_color = 'black'
+
+    ax.text(0.96, 0.04, metric_text, transform=ax.transAxes,
+            color=text_color, verticalalignment='bottom', 
+            horizontalalignment='right', fontweight='normal', fontsize=MEDIUM_SIZE)
     
     # Remove grid lines
     ax.grid(False)
@@ -1484,14 +1655,14 @@ def create_map_panel_colored_stats(ax, data, lon, lat, model_idx, model_name,
 
     if title:
         ax.text(0.02, 1.02, title, transform=ax.transAxes, 
-                verticalalignment='bottom', fontsize=BIGGER_SIZE, fontweight='normal')
+                verticalalignment='bottom', fontsize=LARGE_SIZE, fontweight='normal')
 
     return im
 
 
-def create_8_panel_figure(data, lon, lat,
-                        #   mae_cmz_mean, std_er, far_cmz_mean, mr_cmz_mean, 
-                         data_type='MAE', vmin=0, vmax=15, cmap='YlOrRd', n_colors=10):
+def create_8_panel_figure(data, lat, lon,
+                         data_type='MAE', vmin=0, vmax=15, cmap='YlOrRd', n_colors=10,
+                         shpfile_path=None):
     """
     Create an 8-panel figure showing all models in a 4x2 grid with colorbar covering rows 2-3
     data_type: 'MAE', 'FAR', or 'MR' for title and filename
@@ -1529,9 +1700,9 @@ def create_8_panel_figure(data, lon, lat,
         # Create the map panel with the appropriate colormap
         im = create_map_panel_colored_stats(
             ax, data, lon, lat, i, model_name,
-            # mae_cmz_mean, std_er, far_cmz_mean, mr_cmz_mean,
             data_type=data_type, vmin=vmin, vmax=vmax, cmap=cmap, n_colors=n_colors,
-            show_ylabel=show_ylabel, show_xlabel=show_xlabel
+            show_ylabel=show_ylabel, show_xlabel=show_xlabel,
+            shpfile_path=shpfile_path
         )
         images.append(im)
         
@@ -1591,33 +1762,153 @@ def create_8_panel_figure(data, lon, lat,
     return fig
 
 
-def make_spatial_figs(mae_avg, far, mr, lon, lat):
+
+def create_8_panel_figure_xarray(
+    spatial_dict,
+    metric,
+    data_type='MAE',
+    vmin=0,
+    vmax=15,
+    cmap='YlOrRd',
+    n_colors=10,
+    shpfile_path=None
+):
+    """
+    spatial_dict: dict[str, xr.Dataset]
+    metric: str (e.g. 'mean_mae', 'false_alarm_rate', 'miss_rate')
+    """
+
+    model_str = list(spatial_dict.keys())
+    data_arrays = [spatial_dict[m][metric] for m in model_str]
+
+    fig = plt.figure(figsize=(6, 9), dpi=300)
+
+    gs = GridSpec(
+        4, 3, figure=fig,
+        hspace=0.05, wspace=-0.2,
+        left=0.05, right=0.85, top=0.95, bottom=0.05,
+        width_ratios=[1, 1, 0.08]
+    )
+
+    axes = []
+    for row in range(4):
+        for col in range(2):
+            axes.append(fig.add_subplot(gs[row, col]))
+
+    print(f"Creating {data_type} maps for all 8 models in 4x2 layout...")
+
+    images = []
+
+    for i, (ax, model_name, da) in enumerate(zip(axes, model_str, data_arrays)):
+
+        print(f"Creating panel {i+1}/8: {model_name}")
+
+        # ---- EXACT SAME LOGIC YOU WANTED ----
+        show_ylabel = (i % 2 == 0)
+        show_xlabel = (i >= 6)
+
+        # ---- extract coords from xarray ----
+        lon = da.lon.values
+        lat = da.lat.values
+
+        # ---- call YOUR ORIGINAL plotting function ----
+        im = create_map_panel_colored_stats(
+            ax,
+            da,   # <-- key change: xarray → numpy (keeps your function intact)
+            lon,
+            lat,
+            i,
+            model_name,
+            data_type=data_type,
+            vmin=vmin,
+            vmax=vmax,
+            cmap=cmap,
+            n_colors=n_colors,
+            show_ylabel=show_ylabel,
+            show_xlabel=show_xlabel,
+            shpfile_path=shpfile_path
+        )
+
+        images.append(im)
+
+        # ---- styling (UNCHANGED) ----
+        ax.tick_params(axis='both', which='major',
+                       labelsize=SMALL_SIZE,
+                       length=tick_length,
+                       width=tick_width)
+
+        for side in ['top', 'right', 'bottom', 'left']:
+            ax.spines[side].set_linewidth(panel_linewidth)
+
+        ax.set_aspect('equal', adjustable='box')
+        ax.grid(False)
+
+    # ---- colorbar (UNCHANGED) ----
+    row2_pos = axes[2].get_position()
+    row3_pos = axes[5].get_position()
+
+    cax = fig.add_axes([
+        0.87,
+        row3_pos.y0,
+        0.025,
+        row2_pos.y1 - row3_pos.y0
+    ])
+
+    cbar = fig.colorbar(images[0], cax=cax, orientation='vertical', extend='max')
+
+    if data_type == 'MAE':
+        cbar.set_label('MAE (days)')
+        cbar.set_ticks(np.arange(0, vmax + 1, 3))
+
+    elif data_type == 'FAR':
+        cbar.set_label('False alarm rate (%)')
+        cbar.set_ticks(np.arange(0, vmax + 1, 12))
+
+    elif data_type == 'MR':
+        cbar.set_label('Miss rate (%)')
+        cbar.set_ticks(np.arange(0, vmax + 1, 20))
+
+    cbar.ax.minorticks_off()
+    cbar.ax.tick_params(length=2, width=1)
+
+    plt.tight_layout()
+
+    return fig
+
+
+def make_spatial_figs(mae_avg, far, mr, lon, lat,
+                      shpfile_path=None):
     print("Creating 8-panel figures...")
         
     # MAE Figure - use YlOrRd colormap
     mae_fig = create_8_panel_figure(
-        mae_avg, lon, lat,
+        mae_avg, lat, lon,
         # mae_cmz, std_er, far_cmz, mr_cmz,
-        data_type='MAE', vmin=0, vmax=15, cmap='YlOrRd', n_colors=10
+        data_type='MAE', vmin=0, vmax=15, cmap='YlOrRd', n_colors=10,
+        shpfile_path=shpfile_path
     )
     
     # FAR Figure - use Blues colormap and multiply by 100
     far_fig = create_8_panel_figure(
-        far, lon, lat,
+        far, lat, lon,
         # far_cmz, std_er, far_cmz, mr_cmz,
-        data_type='FAR', vmin=0, vmax=60, cmap='Blues', n_colors=10
+        data_type='FAR', vmin=0, vmax=60, cmap='Blues', n_colors=10,
+        shpfile_path=shpfile_path
     )
     
     # MR Figure - use Blues colormap and multiply by 100
     mr_fig = create_8_panel_figure(
-        mr, lon, lat,
+        mr, lat, lon,
         # mr_cmz, std_er, far_cmz, mr_cmz,
-        data_type='MR', vmin=0, vmax=100, cmap='Blues', n_colors=10
+        data_type='MR', vmin=0, vmax=100, cmap='Blues', n_colors=10,
+        shpfile_path=shpfile_path
     )
     
     plt.show()
     print("All 8-panel figures completed successfully!")
     print("8-panel figure functions created successfully!")
+
+    return mae_fig, far_fig, mr_fig
 
 
 def generate_fig_7_8_9(config):
@@ -1629,23 +1920,76 @@ def generate_fig_7_8_9(config):
     # Only load 15-day model data
     model_dfs_15, model_onsets_15 = get_spatial_fig_model_data(config, n=15)
 
-    # Format into plottable spatial dict with 15-day climatology
-    spatial_figs_15 = format_data_for_spatial_fig(
-        config,
-        (model_dfs_15, model_onsets_15),
-        spatial_clim_15,
-    )
+    spatial_dict_15 = build_spatial_xarray_dict(config=config,
+                              model_dfs=model_dfs_15,
+                              model_onsets=model_onsets_15,
+                              clim_data=spatial_clim_15
+                              )
+    
+    mae_panel = [spatial_dict_15[m]["mean_mae"] for m in spatial_dict_15]
+    far_panel = [spatial_dict_15[m]["false_alarm_rate"] for m in spatial_dict_15]
+    miss_panel = [spatial_dict_15[m]["miss_rate"] for m in spatial_dict_15]
+        
+    lat = next(iter(spatial_dict_15.values())).lat.values
+    lon = next(iter(spatial_dict_15.values())).lon.values
 
-    # Pass empty dict for 30-day — create_formatted_df_for_plot handles it gracefully
-    combined_df = create_formatted_df_for_plot(spatial_figs_15, {})
+    mae_fig = create_8_panel_figure_xarray(spatial_dict_15,
+                                 "mean_mae",
+                                 data_type="MAE",
+                                 vmin=0, vmax=15,
+                                 cmap="YlOrRd",
+                                 n_colors=10,
+                                 shpfile_path=config["shpfile_path"],
+                                 )
+    far_fig = create_8_panel_figure_xarray(spatial_dict_15,
+                                 "false_alarm_rate",
+                                 data_type="FAR",
+                                 vmin=0, vmax=60, cmap='Blues',
+                                 n_colors=10,
+                                 shpfile_path=config["shpfile_path"],
+                                 )
+    mr_fig = create_8_panel_figure_xarray(spatial_dict_15,
+                                 "miss_rate",
+                                 data_type="MR",
+                                 vmin=0, vmax=100, cmap='Blues',
+                                 n_colors=10,
+                                 shpfile_path=config["shpfile_path"],
+                                 )
+    plt.show()
 
-    mae_avg, far, mr = get_grid_mae_far_mr(combined_df)
+    return (mae_fig, far_fig, mr_fig), {
+        "mae": mae_panel,
+        "far": far_panel,
+        "mr": miss_panel,
+        "lat": lat,
+        "lon": lon
+    }
 
-    ref_model = next(iter(spatial_figs_15))
-    lat = spatial_figs_15[ref_model]["mean_mae"].lat.values
-    lon = spatial_figs_15[ref_model]["mean_mae"].lon.values
+    
 
-    make_spatial_figs(mae_avg, far, mr, lon, lat)
+
+    
+
+    # # Format into plottable spatial dict with 15-day climatology
+    # spatial_figs_15 = format_data_for_spatial_fig(
+    #     config,
+    #     (model_dfs_15, model_onsets_15),
+    #     spatial_clim_15,
+    # )
+
+    # # Pass empty dict for 30-day — create_formatted_df_for_plot handles it gracefully
+    # combined_df = create_formatted_df_for_plot(spatial_figs_15, {})
+
+    # mae_avg, far, mr = get_grid_mae_far_mr(combined_df)
+
+    # ref_model = next(iter(spatial_figs_15))
+    # lat = spatial_figs_15[ref_model]["mean_mae"].lat.values
+    # lon = spatial_figs_15[ref_model]["mean_mae"].lon.values
+
+    # mae_fig, far_fig, mr_fig = make_spatial_figs(mae_avg, far, mr, lon, lat, shpfile_path=config["shpfile_path"])
+    # gridded_data = {"mae": mae_avg, "far": far, "mr": mr, "lat": lat, "lon": lon}
+    # return (mae_fig, far_fig, mr_fig), gridded_data
+    # return None
 
 
 def generate_fig_10_11_12(config):
@@ -1657,20 +2001,74 @@ def generate_fig_10_11_12(config):
     # Load 30-day model data — this is the key difference from figs 7-9
     model_dfs_30, model_onsets_30 = get_spatial_fig_model_data(config, n=30)
 
-    # Format into plottable spatial dict with 30-day climatology
-    spatial_figs_30 = format_data_for_spatial_fig(
-        config,
-        (model_dfs_30, model_onsets_30),
-        spatial_clim_30,
-    )
+    spatial_dict_30 = build_spatial_xarray_dict(config=config,
+                              model_dfs=model_dfs_30,
+                              model_onsets=model_onsets_30,
+                              clim_data=spatial_clim_30
+                              )
+    
+    mae_panel = [spatial_dict_30[m]["mean_mae"] for m in spatial_dict_30]
+    far_panel = [spatial_dict_30[m]["false_alarm_rate"] for m in spatial_dict_30]
+    miss_panel = [spatial_dict_30[m]["miss_rate"] for m in spatial_dict_30]
+        
+    lat = next(iter(spatial_dict_30.values())).lat.values
+    lon = next(iter(spatial_dict_30.values())).lon.values
 
-    # Pass empty dict for 15-day
-    combined_df = create_formatted_df_for_plot({}, spatial_figs_30)
+    mae_fig = create_8_panel_figure_xarray(spatial_dict_30,
+                                 "mean_mae",
+                                 data_type="MAE",
+                                 vmin=0, vmax=15,
+                                 cmap="YlOrRd",
+                                 n_colors=10,
+                                 shpfile_path=config["shpfile_path"],
+                                 )
+    far_fig = create_8_panel_figure_xarray(spatial_dict_30,
+                                 "false_alarm_rate",
+                                 data_type="FAR",
+                                 vmin=0, vmax=60, cmap='Blues',
+                                 n_colors=10,
+                                 shpfile_path=config["shpfile_path"],
+                                 )
+    mr_fig = create_8_panel_figure_xarray(spatial_dict_30,
+                                 "miss_rate",
+                                 data_type="MR",
+                                 vmin=0, vmax=100, cmap='Blues',
+                                 n_colors=10,
+                                 shpfile_path=config["shpfile_path"],
+                                 )
+    plt.show()
 
-    mae_avg, far, mr = get_grid_mae_far_mr(combined_df)
+    return (mae_fig, far_fig, mr_fig), {
+        "mae": mae_panel,
+        "far": far_panel,
+        "mr": miss_panel,
+        "lat": lat,
+        "lon": lon
+    }
 
-    ref_model = next(iter(spatial_figs_30))
-    lat = spatial_figs_30[ref_model]["mean_mae"].lat.values
-    lon = spatial_figs_30[ref_model]["mean_mae"].lon.values
+    # # Format into plottable spatial dict with 30-day climatology
+    # spatial_figs_30 = format_data_for_spatial_fig(
+    #     config,
+    #     (model_dfs_30, model_onsets_30),
+    #     spatial_clim_30,
+    # )
 
-    make_spatial_figs(mae_avg, far, mr, lon, lat)
+    # # Pass empty dict for 15-day
+    # combined_df = create_formatted_df_for_plot({}, spatial_figs_30)
+
+    # mae_avg, far, mr = get_grid_mae_far_mr(combined_df)
+
+    # ref_model = next(iter(spatial_figs_30))
+    # lat = spatial_figs_30[ref_model]["mean_mae"].lat.values
+    # lon = spatial_figs_30[ref_model]["mean_mae"].lon.values
+
+    # mae_fig, far_fig, mr_fig = make_spatial_figs(mae_avg, far, mr, lon, lat, shpfile_path=config["shpfile_path"])
+    # gridded_data = {"mae": mae_avg, "far": far, "mr": mr, "lat": lat, "lon": lon}
+    # return (mae_fig, far_fig, mr_fig), gridded_data
+
+
+
+# def compare_gridded_data(paper_orig, recreated_orig):
+#     diff = {}
+#     for key, value in paper_orig.items():
+        
