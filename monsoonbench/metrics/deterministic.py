@@ -18,7 +18,9 @@ class DeterministicOnsetMetrics(OnsetMetricsBase):
     """Deterministic model specific onset metrics calculations."""
 
     @staticmethod
-    def get_forecast_deterministic_twice_weekly(yr, model_forecast_dir):
+    def get_forecast_deterministic_twice_weekly(
+        yr, model_forecast_dir, date_filter_year=2024
+    ):
         """Load model precip data for twice-weekly initializations from May to July.
 
         Filters for Mondays and Thursdays in the specified year.
@@ -38,9 +40,9 @@ class DeterministicOnsetMetrics(OnsetMetricsBase):
             raise FileNotFoundError(f"File not found: {file_path}")
 
         # Filter for twice weekly data from daily for the specified year based on 2024 Monday and Thursday dates (to match with IFS CY48R1 reforecasts)
-        # Define date range from May 1 to July 31 of 2024
-        start_date = datetime(2024, 5, 1)
-        end_date = datetime(2024, 7, 31)
+        # Define date range from May 1 to July 31 of the filter year
+        start_date = datetime(date_filter_year, 5, 1)
+        end_date = datetime(date_filter_year, 7, 31)
         date_range = pd.date_range(start_date, end_date, freq="D")
 
         # Find Mondays (weekday=0) and Thursdays (weekday=3) in pandas
@@ -181,7 +183,7 @@ class DeterministicOnsetMetrics(OnsetMetricsBase):
                                         )
 
                                         if mok:
-                                            if forecast_date.date() >= mok_date.date():
+                                            if forecast_date.date() > mok_date.date():
                                                 onset_day = day
                                                 break
                                         else:
@@ -239,6 +241,7 @@ class DeterministicOnsetMetrics(OnsetMetricsBase):
         onset_window=5,
         mok_month=6,
         mok_day=2,
+        date_filter_year=2024,
     ):
         """Compute onset metrics for multiple years."""
         metrics_df_dict = {}
@@ -253,7 +256,7 @@ class DeterministicOnsetMetrics(OnsetMetricsBase):
             print(f"{'=' * 50}")
 
             p_model = DeterministicOnsetMetrics.get_forecast_deterministic_twice_weekly(
-                year, model_forecast_dir
+                year, model_forecast_dir, date_filter_year=date_filter_year
             )
             imd = OnsetMetricsBase.load_imd_rainfall(year, imd_folder)
             onset_da = OnsetMetricsBase.detect_observed_onset(
