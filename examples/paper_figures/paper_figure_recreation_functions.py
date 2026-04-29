@@ -1206,6 +1206,7 @@ def get_spatial_fig_model_data(config, n=15):
                     onset_window=5,
                     mok_month=6,
                     mok_day=2,
+                    date_filter_year=2024 if model_name != "FuXi-S2S" else 2022
                 )
             )
 
@@ -1234,6 +1235,7 @@ def get_spatial_fig_model_data(config, n=15):
                         onset_window=5,
                         mok_month=6,
                         mok_day=2,
+                        date_filter_year=2024 if model_name != "FuXi-S2S" else 2022
                     )
                 )
 
@@ -1264,6 +1266,7 @@ def get_spatial_fig_model_data(config, n=15):
                     onset_window=5,
                     mok_month=6,
                     mok_day=2,
+                    date_filter_year=2024 if model_name != "FuXi-S2S" else 2022
                 )
             )
             model_dfs[model_name] = probabilistic_df_30
@@ -1291,6 +1294,7 @@ def get_spatial_fig_model_data(config, n=15):
                     onset_window=5,
                     mok_month=6,
                     mok_day=2,
+                    date_filter_year=2024 if model_name != "FuXi-S2S" else 2022
                 )
             )
 
