@@ -79,7 +79,7 @@ def get_model_dfs(
     for model_name, model_fp in model_paths.items():
         if model_name not in year_ranges:
             continue
-        if model_name == "FuXi-S2S":
+        if model_name.lower() == "fuxi-s2s":
             date_filter_year=2022
         else:
             date_filter_year=2024
@@ -218,6 +218,7 @@ def get_climatological_dfs(
 
     Args:
         config: Dictionary of configuration parameters.
+        date_filter_year: Year to filter initialization dates by 
 
     Returns:
         Dictionary of climatological dataframes and onset data arrays.
