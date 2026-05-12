@@ -11,6 +11,9 @@ import pandas as pd
 from pathlib import Path
 from matplotlib.path import Path as MplPath
 
+from data_utils import save_data
+
+from scipy.io import loadmat
 
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
@@ -92,7 +95,7 @@ def spatial_dict_to_panels(spatial_dict, metric):
 
 def points_inside_polygon(
     polygon_lon, polygon_lat, grid_lons, grid_lats
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Find grid points that are inside a polygon.
 
     Parameters:
@@ -128,6 +131,17 @@ def points_inside_polygon(
     inside_lats = lat_grid[inside_mask]
 
     return inside_mask, inside_lons, inside_lats
+
+
+def load_spatial_dict(save_path, model_names=model_str):
+    """Load merged NetCDF and split back into per-model dict."""
+    merged = xr.open_dataset(save_path)
+    return {
+        name: merged.sel(model=name).drop_vars("model")
+        for name in model_names
+        if name in merged.model.values
+    }
+
 
 def get_clim_onset_da(config: dict,
                    years = None):
@@ -595,47 +609,7 @@ def get_clim_brier(df):
 def get_clim_rps(df):
     clim_rps = p.calculate_rps(df)
     return clim_rps
-
-
-# def fig6_metric_calculation(forecast_df,
-#                             clim_brier,
-#                             clim_rps,
-#                             n=15,
-#                             model_name=None,
-#                             ):
-    
-#     rows= []
-#     for lat in forecast_df.lat.unique():
-#         for lon in forecast_df.lon.unique():
-#             print("="*50)
-#             print(f"Calculating for {lat}, {lon} pair")
-#             print("="*50)
-#             row = {}
-#             loop_df = forecast_df.loc[
-#                 (forecast_df["lat"] == lat) & (forecast_df["lon"] == lon)
-#                 ].copy()
-#             if loop_df.empty:
-#                 continue
-#             else:
-#                 brier = p.calculate_brier_score(loop_df)
-#                 rps = p.calculate_rps(loop_df)
-#                 skill_scores = p.calculate_skill_scores(
-#                             brier_forecast=brier,
-#                             rps_forecast=rps,
-#                             brier_climatology=clim_brier,
-#                             rps_climatology=clim_rps,
-#                         )
-#                 row["fair_brier_skill"] = skill_scores["fair_brier_skill_score"]
-#                 row["fair_rps_skill"] = skill_scores["fair_rps_skill_score"]
-#                 row["lat"] = lat
-#                 row["lon"] = lon
-#                 row["horizon"] = n
-#                 if model_name:
-#                     row["dataset"] = model_name
-#                 rows.append(row)
-
-#     return pd.DataFrame(rows)
-                        
+           
 
 def fig6_metric_calculation(forecast_df, clim_df, n=15, model_name=None):
     rows = []
@@ -987,131 +961,67 @@ def create_skill_maps_figure_xr(df,
     return fig, data_arrays
 
 
-# def generate_fig6(config, clim_onset):
+def generate_fig6(config):
 
-#     # Point 5 fix: actually call the functions with ()
-#     forecast_dfs_15, forecast_dfs_30 = get_fig_6_model_data(config)
+    try:
+        output_dir = config['output_dir']
+        fig6_metrics = pd.read_csv(f"{output_dir}/probabalistic_scores_15_30_day_2004_2021.csv")
 
-#     # Point 3 fix: build a separate climatology for each model using its own init dates
-#     clim_data = {}
-#     for model_name, model_fp in config["model_paths"].items():
-#         if model_name not in ["FuXi-S2S", "NGCM", "IFS"]:
-#             continue
-#         date_filter_year = 2022 if model_name == "IFS" else 2024
-#         mem_num = 11 if model_name == "IFS" else 51
+    except FileNotFoundError:
 
-#         clim_15, clim_30 = get_fig_6_clim_data(
-#             clim_onset,
-#             config,
-#             model_forecast_dir=model_fp,
-#             date_filter_year=date_filter_year,
-#             mem_num=mem_num,
-#         )
-#         clim_data[model_name] = {"15": clim_15, "30": clim_30}
-
-#     fig6_metrics_dict_15 = {}
-#     fig6_metrics_dict_30 = {}
-
-#     for key, value in forecast_dfs_15.items():
-#         # Point 3 fix: use the model-specific climatology as reference
-#         model_clim_15 = clim_data[key]["15"]
-
-#         # Point 4 fix: exclude "earlier"-equivalent rows from Brier, keep all for RPS
-#         clim_brier_15 = get_clim_brier(
-#             model_clim_15
-#         )
-#         clim_rps_15 = get_clim_rps(model_clim_15)
-
-#         loop_ret = fig6_metric_calculation(
-#             value,
-#             clim_brier=clim_brier_15,
-#             clim_rps=clim_rps_15,
-#             n=15,
-#             model_name=key,
-#         )
-#         fig6_metrics_dict_15[key] = loop_ret
-
-#     for key, value in forecast_dfs_30.items():
-#         model_clim_30 = clim_data[key]["30"]
-
-#         clim_brier_30 = get_clim_brier(
-#             model_clim_30
-#         )
-#         clim_rps_30 = get_clim_rps(model_clim_30)
-
-#         loop_ret = fig6_metric_calculation(
-#             value,
-#             clim_brier=clim_brier_30,
-#             clim_rps=clim_rps_30,
-#             n=30,
-#             model_name=key,
-#         )
-#         fig6_metrics_dict_30[key] = loop_ret
-
-#     fig6_metrics_15 = pd.concat(fig6_metrics_dict_15.values())
-#     fig6_metrics_30 = pd.concat(fig6_metrics_dict_30.values())
-
-#     fig6_metrics = pd.concat([fig6_metrics_15, fig6_metrics_30])
-
-#     skill_fig, gridded_data = create_skill_maps_figure_xr(
-#         df=fig6_metrics,
-#         config=config,
-#     )
-#     plt.show()
-
-#     return skill_fig, gridded_data
-
-
-def generate_fig6(config, clim_onset):
-
-    forecast_dfs_15, forecast_dfs_30 = get_fig_6_model_data(config)
+        clim_onset = get_clim_onset_da(config)
+        forecast_dfs_15, forecast_dfs_30 = get_fig_6_model_data(config)
 
     # Build a separate climatology for each model using its own init dates
-    clim_data = {}
-    for model_name, model_fp in config["model_paths"].items():
-        if model_name not in ["FuXi-S2S", "NGCM", "IFS"]:
-            continue
-        date_filter_year = 2022 if model_name == "FuXi-S2S" else 2024
-        mem_num = 11 if model_name == "IFS" else 51
+        clim_data = {}
+        for model_name, model_fp in config["model_paths"].items():
+            if model_name not in ["FuXi-S2S", "NGCM", "IFS"]:
+                continue
+            date_filter_year = 2022 if model_name == "FuXi-S2S" else 2024
+            mem_num = 11 if model_name == "IFS" else 51
 
-        clim_15, clim_30 = get_fig_6_clim_data(
-            clim_onset,
-            config,
-            model_forecast_dir=model_fp,
-            date_filter_year=date_filter_year,
-            mem_num=mem_num,
-        )
-        clim_data[model_name] = {"15": clim_15, "30": clim_30}
+            clim_15, clim_30 = get_fig_6_clim_data(
+                clim_onset,
+                config,
+                model_forecast_dir=model_fp,
+                date_filter_year=date_filter_year,
+                mem_num=mem_num,
+            )
+            clim_data[model_name] = {"15": clim_15, "30": clim_30}
 
-    fig6_metrics_dict_15 = {}
-    fig6_metrics_dict_30 = {}
+        fig6_metrics_dict_15 = {}
+        fig6_metrics_dict_30 = {}
 
-    for key, value in forecast_dfs_15.items():
-        model_clim_15 = clim_data[key]["15"]
+        for key, value in forecast_dfs_15.items():
+            model_clim_15 = clim_data[key]["15"]
 
-        # Pass the full climatology DataFrame — scoring is now per-cell inside
-        loop_ret = fig6_metric_calculation(
-            value,
-            clim_df=model_clim_15,
-            n=15,
-            model_name=key,
-        )
-        fig6_metrics_dict_15[key] = loop_ret
+            # Pass the full climatology DataFrame — scoring is now per-cell inside
+            loop_ret = fig6_metric_calculation(
+                value,
+                clim_df=model_clim_15,
+                n=15,
+                model_name=key,
+            )
+            fig6_metrics_dict_15[key] = loop_ret
 
-    for key, value in forecast_dfs_30.items():
-        model_clim_30 = clim_data[key]["30"]
+        for key, value in forecast_dfs_30.items():
+            model_clim_30 = clim_data[key]["30"]
 
-        loop_ret = fig6_metric_calculation(
-            value,
-            clim_df=model_clim_30,
-            n=30,
-            model_name=key,
-        )
-        fig6_metrics_dict_30[key] = loop_ret
+            loop_ret = fig6_metric_calculation(
+                value,
+                clim_df=model_clim_30,
+                n=30,
+                model_name=key,
+            )
+            fig6_metrics_dict_30[key] = loop_ret
 
-    fig6_metrics_15 = pd.concat(fig6_metrics_dict_15.values())
-    fig6_metrics_30 = pd.concat(fig6_metrics_dict_30.values())
-    fig6_metrics = pd.concat([fig6_metrics_15, fig6_metrics_30])
+        fig6_metrics_15 = pd.concat(fig6_metrics_dict_15.values())
+        fig6_metrics_30 = pd.concat(fig6_metrics_dict_30.values())
+        fig6_metrics = pd.concat([fig6_metrics_15, fig6_metrics_30])
+
+        save_loco = f"{output_dir}/probabalistic_scores_15_30_day_2004_2021.csv"
+        print(f"Saving loaded data to {save_loco}")
+        fig6_metrics.to_csv(save_loco)
 
     skill_fig, gridded_data = create_skill_maps_figure_xr(
         df=fig6_metrics,
@@ -1918,18 +1828,27 @@ def make_spatial_figs(mae_avg, far, mr, lon, lat,
 def generate_fig_7_9_11(config):
     """15-day spatial figures (MAE, FAR, MR)."""
 
-    # Only need 15-day climatology
-    spatial_clim_15 = get_spatial_fig_clim_data(config, n=15)
+    save_path = config["output_dir"] + "spatial_scores_15_day_2019_2024.nc"
 
-    # Only load 15-day model data
-    model_dfs_15, model_onsets_15 = get_spatial_fig_model_data(config, n=15)
+    try:
+        spatial_dict_15 = load_spatial_dict(save_path, model_str)
 
-    spatial_dict_15 = build_spatial_xarray_dict(config=config,
-                              model_dfs=model_dfs_15,
-                              model_onsets=model_onsets_15,
-                              clim_data=spatial_clim_15
-                              )
-    
+    except FileNotFoundError:
+        spatial_clim_15 = get_spatial_fig_clim_data(config, n=15)
+        model_dfs_15, model_onsets_15 = get_spatial_fig_model_data(config, n=15)
+        spatial_dict_15 = build_spatial_xarray_dict(
+            config=config,
+            model_dfs=model_dfs_15,
+            model_onsets=model_onsets_15,
+            clim_data=spatial_clim_15,
+        )
+        print(f"Saving loaded data to {save_path}")
+        tagged = [ds.expand_dims(model=[name]) for name, ds in spatial_dict_15.items()]
+        merged = xr.merge(tagged)
+        merged.to_netcdf(save_path)
+        # save_spatial_dict(spatial_dict_15, config["output_dir"], "spatial_scores_15_day_2019_2024")
+
+
     mae_panel = [spatial_dict_15[m]["mean_mae"] for m in spatial_dict_15]
     far_panel = [spatial_dict_15[m]["false_alarm_rate"] for m in spatial_dict_15]
     miss_panel = [spatial_dict_15[m]["miss_rate"] for m in spatial_dict_15]
@@ -1971,46 +1890,32 @@ def generate_fig_7_9_11(config):
 
     
 
-
-    
-
-    # # Format into plottable spatial dict with 15-day climatology
-    # spatial_figs_15 = format_data_for_spatial_fig(
-    #     config,
-    #     (model_dfs_15, model_onsets_15),
-    #     spatial_clim_15,
-    # )
-
-    # # Pass empty dict for 30-day — create_formatted_df_for_plot handles it gracefully
-    # combined_df = create_formatted_df_for_plot(spatial_figs_15, {})
-
-    # mae_avg, far, mr = get_grid_mae_far_mr(combined_df)
-
-    # ref_model = next(iter(spatial_figs_15))
-    # lat = spatial_figs_15[ref_model]["mean_mae"].lat.values
-    # lon = spatial_figs_15[ref_model]["mean_mae"].lon.values
-
-    # mae_fig, far_fig, mr_fig = make_spatial_figs(mae_avg, far, mr, lon, lat, shpfile_path=config["shpfile_path"])
-    # gridded_data = {"mae": mae_avg, "far": far, "mr": mr, "lat": lat, "lon": lon}
-    # return (mae_fig, far_fig, mr_fig), gridded_data
-    # return None
-
-
 def generate_fig_8_10_12(config):
     """30-day spatial figures (MAE, FAR, MR)."""
 
-    # Only need 30-day climatology
-    spatial_clim_30 = get_spatial_fig_clim_data(config, n=30)
+    save_path = config["output_dir"] + "spatial_scores_30_day_2019_2024.nc"
 
-    # Load 30-day model data — this is the key difference from figs 7-9
-    model_dfs_30, model_onsets_30 = get_spatial_fig_model_data(config, n=30)
+    try:
+        spatial_dict_30 = load_spatial_dict(save_path, model_str)
 
-    spatial_dict_30 = build_spatial_xarray_dict(config=config,
-                              model_dfs=model_dfs_30,
-                              model_onsets=model_onsets_30,
-                              clim_data=spatial_clim_30
-                              )
-    
+    except FileNotFoundError:
+        # Only need 30-day climatology
+        spatial_clim_30 = get_spatial_fig_clim_data(config, n=30)
+
+        # Load 30-day model data — this is the key difference from figs 7-9
+        model_dfs_30, model_onsets_30 = get_spatial_fig_model_data(config, n=30)
+
+        spatial_dict_30 = build_spatial_xarray_dict(config=config,
+                                model_dfs=model_dfs_30,
+                                model_onsets=model_onsets_30,
+                                clim_data=spatial_clim_30
+                                )
+        print(f"Saving loaded data to {save_path}")
+        tagged = [ds.expand_dims(model=[name]) for name, ds in spatial_dict_30.items()]
+        merged = xr.merge(tagged)
+        merged.to_netcdf(save_path)
+        # save_spatial_dict(spatial_dict_30, config["output_dir"], "spatial_scores_30_day_2019_2024")
+
     mae_panel = [spatial_dict_30[m]["mean_mae"] for m in spatial_dict_30]
     far_panel = [spatial_dict_30[m]["false_alarm_rate"] for m in spatial_dict_30]
     miss_panel = [spatial_dict_30[m]["miss_rate"] for m in spatial_dict_30]
@@ -2050,29 +1955,3 @@ def generate_fig_8_10_12(config):
         "lon": lon
     }
 
-    # # Format into plottable spatial dict with 30-day climatology
-    # spatial_figs_30 = format_data_for_spatial_fig(
-    #     config,
-    #     (model_dfs_30, model_onsets_30),
-    #     spatial_clim_30,
-    # )
-
-    # # Pass empty dict for 15-day
-    # combined_df = create_formatted_df_for_plot({}, spatial_figs_30)
-
-    # mae_avg, far, mr = get_grid_mae_far_mr(combined_df)
-
-    # ref_model = next(iter(spatial_figs_30))
-    # lat = spatial_figs_30[ref_model]["mean_mae"].lat.values
-    # lon = spatial_figs_30[ref_model]["mean_mae"].lon.values
-
-    # mae_fig, far_fig, mr_fig = make_spatial_figs(mae_avg, far, mr, lon, lat, shpfile_path=config["shpfile_path"])
-    # gridded_data = {"mae": mae_avg, "far": far, "mr": mr, "lat": lat, "lon": lon}
-    # return (mae_fig, far_fig, mr_fig), gridded_data
-
-
-
-# def compare_gridded_data(paper_orig, recreated_orig):
-#     diff = {}
-#     for key, value in paper_orig.items():
-        
