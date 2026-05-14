@@ -674,9 +674,9 @@ class ProbabilisticOnsetMetrics(OnsetMetricsBase):
                                     # Calculate the actual date this forecast day represents
                                     forecast_date = init_date + pd.Timedelta(days=day)
 
-                                    # If MOK flag is True, only count onset if it's on or after June 2nd
+                                    # If MOK flag is True, only count onset strictly after June 2nd
                                     if mok:
-                                        if forecast_date.date() >= mok_date.date():
+                                        if forecast_date.date() > mok_date.date():
                                             onset_day = day
                                             break
                                     else:
