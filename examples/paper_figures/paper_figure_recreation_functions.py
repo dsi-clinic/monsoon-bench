@@ -1828,7 +1828,7 @@ def make_spatial_figs(mae_avg, far, mr, lon, lat,
 def generate_fig_7_9_11(config):
     """15-day spatial figures (MAE, FAR, MR)."""
 
-    save_path = config["output_dir"] + "spatial_scores_15_day_2019_2024.nc"
+    save_path = config["output_dir"] + "/spatial_scores_15_day_2019_2024.nc"
 
     try:
         spatial_dict_15 = load_spatial_dict(save_path, model_str)
@@ -1893,7 +1893,7 @@ def generate_fig_7_9_11(config):
 def generate_fig_8_10_12(config):
     """30-day spatial figures (MAE, FAR, MR)."""
 
-    save_path = config["output_dir"] + "spatial_scores_30_day_2019_2024.nc"
+    save_path = config["output_dir"] + "/spatial_scores_30_day_2019_2024.nc"
 
     try:
         spatial_dict_30 = load_spatial_dict(save_path, model_str)
