@@ -13,7 +13,7 @@ from examples.paper_figures.plot_config import (
     params, SMALL_SIZE, MEDIUM_SIZE, LARGE_SIZE
 )
 
-from examples.paper_figures.data_utils import (
+from examples.paper_figures.utils.data_utils import (
     YEAR_RANGES, save_data
 )
 

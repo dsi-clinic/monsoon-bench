@@ -3,8 +3,8 @@ import sys
 
 import numpy as np
 
-from examples.paper_figures.data_utils import save_all_data
-from examples.paper_figures.fig3_utils import load_fig3_data
+from examples.paper_figures.utils.data_utils import save_all_data
+from examples.paper_figures.utils.fig3_utils import load_fig3_data
 
 
 def _find_dirs_with_name(root, keyword, exclude=None):
