@@ -150,7 +150,7 @@ def points_inside_polygon(
     points = np.column_stack((lon_grid.ravel(), lat_grid.ravel()))
 
     # Test which points are inside the polygon
-    inside_mask = polygon_path.contains_points(points)
+    inside_mask = polygon_path.contains_points(points, radius=-0.01)
     inside_mask = inside_mask.reshape(lon_grid.shape)
 
     # Get coordinates of points inside polygon

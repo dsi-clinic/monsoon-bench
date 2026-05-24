@@ -27,25 +27,23 @@ YEAR_RANGES = {
 
 EXTENDED_YEARS = {
     "AIFS": np.concatenate((np.arange(1965, 1979), np.arange(2019, 2025))),
-    "IFS": np.arange(2013, 2024),
+    "IFS": np.arange(2019, 2024),
     "FuXi": np.concatenate((np.arange(1965, 1979), np.arange(2019, 2025))),
     "Graphcast": np.concatenate((np.arange(1965, 1979), np.arange(2019, 2025))),
-    "GenCast": np.arange(2019, 2025),
+    "GenCast": np.concatenate((np.arange(1965, 1979), np.arange(2019, 2025))),
     "FuXi-S2S": np.arange(2019, 2022),
     "NGCM": np.concatenate((np.arange(1965, 1979), np.arange(2019, 2025))),
 }
 
 # Figure 4 year ranges
 YEAR_RANGES_COM = {
-    "AIFS": np.arange(2019, 2025),
-    "IFS": np.arange(2019, 2024),
-    "FuXi": np.arange(2019, 2025),
-    "Graphcast": np.arange(2019, 2025),
-    "GenCast": np.arange(2019, 2025),
-    "FuXi-S2S": np.arange(2019, 2022),
-    "NGCM": np.arange(2019, 2025),
+    "AIFS": np.arange(2004, 2022),
+    "IFS": np.arange(2004, 2022),
+    "FuXi": np.arange(2004, 2022),
+    "Graphcast": np.arange(2004, 2022),
+    "FuXi-S2S": np.arange(2004, 2022),
+    "NGCM": np.arange(2004, 2022),
 }
-
 
 def get_model_dfs(
     model_paths: dict[str, str],
@@ -61,7 +59,7 @@ def get_model_dfs(
         config: Dictionary of configuration parameters.
         days: Number of days to forecast (15 or 30).
     """
-    metrics = ProbabilisticOnsetMetrics()
+    p_metrics = ProbabilisticOnsetMetrics()
     d_metrics = DeterministicOnsetMetrics()
 
     model_dfs = {}
@@ -79,8 +77,14 @@ def get_model_dfs(
 
     # Compute metrics for each model
     for model_name, model_fp in model_paths.items():
+        if model_name not in year_ranges:
+            continue
+        if model_name.lower() == "fuxi-s2s":
+            date_filter_year=2022
+        else:
+            date_filter_year=2024
         try:
-            probabilistic_df, onset_da_dict = metrics.compute_metrics_multiple_years(
+            model_df, onset_da_dict = p_metrics.compute_metrics_multiple_years(
                 years=year_ranges[model_name],
                 imd_folder=config["imd_folder"],
                 thres_file=config["thres_file"],
@@ -93,9 +97,10 @@ def get_model_dfs(
                 onset_window=5,
                 mok_month=6,
                 mok_day=2,
+                date_filter_year=date_filter_year,
             )
-        except Exception:
-            probabilistic_df, onset_da_dict = d_metrics.compute_metrics_multiple_years(
+        except:
+            model_df, onset_da_dict = d_metrics.compute_metrics_multiple_years(
                 years=year_ranges[model_name],
                 imd_folder=config["imd_folder"],
                 thres_file=config["thres_file"],
@@ -108,20 +113,20 @@ def get_model_dfs(
                 onset_window=5,
                 mok_month=6,
                 mok_day=2,
+                date_filter_year=date_filter_year,
             )
 
-        model_dfs[model_name] = probabilistic_df
+        model_dfs[model_name] = model_df
         model_onsets[model_name] = onset_da_dict
 
     return model_dfs, model_onsets
-
 
 def get_plot_metrics(
     model_dfs: dict[str, pd.DataFrame],
     model_onsets: dict[str, xr.DataArray],
     metrics_df_clim: pd.DataFrame,
     onset_da_clim: xr.DataArray,
-    config: dict[str, str],
+    year_range: list[int],
     day: int = 15,
 ) -> dict[str, np.ndarray]:
     """Get Figure 1 & 4 plot metrics for a given set of model
@@ -151,10 +156,10 @@ def get_plot_metrics(
         plot_metrics[model_name] = plot_probabilistic_metrics
 
     clim_plot_data = c_metrics.create_spatial_far_mr_mae(
-        metrics_df_clim, dict.fromkeys(config["years"], onset_da_clim)
+        metrics_df_clim, dict.fromkeys(year_range, onset_da_clim)
     )
 
-    mean_mae = plot_metrics["AIFS"]["mean_mae"]
+    mean_mae = plot_metrics[model_name]["mean_mae"]
 
     # Get coordinates
     lats = mean_mae.lat.to_numpy()
@@ -207,11 +212,13 @@ def get_plot_metrics(
 
 def get_climatological_dfs(
     config: dict[str, str],
+    date_filter_year: int = 2024,
 ) -> dict[str, tuple[pd.DataFrame, xr.DataArray]]:
     """Get climatological dataframes and onset data arrays for all year ranges.
 
     Args:
         config: Dictionary of configuration parameters.
+        date_filter_year: Year to filter initialization dates by 
 
     Returns:
         Dictionary of climatological dataframes and onset data arrays.
@@ -231,6 +238,7 @@ def get_climatological_dfs(
         onset_window=5,
         mok_month=6,
         mok_day=2,
+        date_filter_year=date_filter_year,
     )
 
     # Compute 15-day forecast data for the extended period
@@ -247,6 +255,7 @@ def get_climatological_dfs(
             onset_window=5,
             mok_month=6,
             mok_day=2,
+            date_filter_year=date_filter_year,
         )
     )
 
@@ -255,14 +264,15 @@ def get_climatological_dfs(
         years=config["years"],
         imd_folder=config["imd_folder"],
         thres_file=config["thres_file"],
-        tolerance_days=3,
-        verification_window=1,
+        tolerance_days=5,
+        verification_window=16,
         forecast_days=30,
         max_forecast_day=30,
         mok=True,
         onset_window=5,
         mok_month=6,
         mok_day=2,
+        date_filter_year=date_filter_year,
     )
 
     # Compute 30-day forecast data for the extended period
@@ -279,14 +289,53 @@ def get_climatological_dfs(
             onset_window=5,
             mok_month=6,
             mok_day=2,
+            date_filter_year=date_filter_year,
+        )
+    )
+
+    # Compute 15-day forecast data for the common period
+    clim_df_15_cm, clim_onset_15_cm = (
+        c_metrics.compute_climatology_baseline_multiple_years(
+            years=np.arange(2004,2022),
+            imd_folder=config["imd_folder"],
+            thres_file=config["thres_file"],
+            tolerance_days=3,
+            verification_window=1,
+            forecast_days=15,
+            max_forecast_day=15,
+            mok=True,
+            onset_window=5,
+            mok_month=6,
+            mok_day=2,
+            date_filter_year=date_filter_year,
+        )
+    )
+
+    # Compute 30-day forecast data for the common period
+    clim_df_30_cm, clim_onset_30_cm = (
+        c_metrics.compute_climatology_baseline_multiple_years(
+            years=np.arange(2004,2022),
+            imd_folder=config["imd_folder"],
+            thres_file=config["thres_file"],
+            tolerance_days=5,
+            verification_window=16,
+            forecast_days=30,
+            max_forecast_day=30,
+            mok=True,
+            onset_window=5,
+            mok_month=6,
+            mok_day=2,
+            date_filter_year=date_filter_year,
         )
     )
 
     output = {
         "15_day": (clim_df_15, clim_onset_15),
         "15_day_ex": (clim_df_15_ex, clim_onset_15_ex),
+        "15_day_cm": (clim_df_15_cm, clim_onset_15_cm),
         "30_day": (clim_df_30, clim_onset_30),
         "30_day_ex": (clim_df_30_ex, clim_onset_30_ex),
+        "30_day_cm": (clim_df_30_cm, clim_onset_30_cm),
     }
 
     return output
@@ -407,77 +456,90 @@ def load_wyi(output_dir: str) -> None:
     return
 
 
-def save_all_data(model_paths: dict[str, str], config: dict[str, str]) -> None:
-    """Save all data for figures 1 and 4.
+def load_fig_1_4_data(model_paths: dict[str, str], config: dict[str, str]) -> None:
+    """Load data for figures 1 and 4.
 
     Args:
         model_paths: Dictionary of model paths.
         config: Dictionary of configuration parameters.
     """
-    print("Loading Model Data (2019-2024)...")
-    model_dfs_15, model_onsets_15 = get_model_dfs(
-        model_paths, year_ranges=YEAR_RANGES, config=config, days=15
-    )
-    model_dfs_30, model_onsets_30 = get_model_dfs(
-        model_paths, year_ranges=YEAR_RANGES, config=config, days=30
-    )
-
-    print("Loading Model Data (extended period)...")
-    model_dfs_15_ex, model_onsets_15_ex = get_model_dfs(
-        model_paths, year_ranges=EXTENDED_YEARS, config=config, days=15
-    )
-    model_dfs_30_ex, model_onsets_30_ex = get_model_dfs(
-        model_paths, year_ranges=EXTENDED_YEARS, config=config, days=30
-    )
-
     print("Loading Climatoligcal Data")
     clim_data = get_climatological_dfs(config=config)
     clim_df_15, clim_onset_15 = clim_data["15_day"]
     clim_df_15_ex, clim_onset_15_ex = clim_data["15_day_ex"]
     clim_df_30, clim_onset_30 = clim_data["30_day"]
     clim_df_30_ex, clim_onset_30_ex = clim_data["30_day_ex"]
+    clim_df_15_cm, clim_onset_15_cm = clim_data["15_day_cm"]
+    clim_df_30_cm, clim_onset_30_cm = clim_data["30_day_cm"]
 
-    print("Loading Model Data (2004-2021)...")
-    model_dfs_15_cm, model_onsets_15_cm = get_model_dfs(
-        model_paths, year_ranges=YEAR_RANGES_COM, config=config, days=15
+    print("Loading Model Data (2019-2024)...")
+    model_dfs_15, model_onsets_15 = get_model_dfs(
+        model_paths, year_ranges=YEAR_RANGES, config=config, days=15
     )
-    model_dfs_30_cm, model_onsets_30_cm = get_model_dfs(
-        model_paths, year_ranges=YEAR_RANGES_COM, config=config, days=30
-    )
-
-    print("Saving Data...")
     md_15 = get_plot_metrics(
-        model_dfs_15, model_onsets_15, clim_df_15, clim_onset_15, config, 15
+        model_dfs_15, model_onsets_15, clim_df_15,
+        clim_onset_15, config["years"], 15
     )
-    md_15_ex = get_plot_metrics(
-        model_dfs_15_ex, model_onsets_15_ex, clim_df_15_ex, clim_onset_15_ex, config, 15
+    save_data(md_15, config["output_dir"], "deterministic_scores_15_day_2019_2024")
+
+    # Compute and save 30-day forecast metrics for 2019-2024
+    model_dfs_30, model_onsets_30 = get_model_dfs(
+        model_paths, year_ranges=YEAR_RANGES, config=config, days=30
     )
     md_30 = get_plot_metrics(
-        model_dfs_30, model_onsets_30, clim_df_30, clim_onset_30, config, 30
+        model_dfs_30, model_onsets_30, clim_df_30,
+        clim_onset_30, config["years"], 30
     )
-    md_30_ex = get_plot_metrics(
-        model_dfs_30_ex, model_onsets_30_ex, clim_df_30_ex, clim_onset_30_ex, config, 30
-    )
-    md_15_cm = get_plot_metrics(
-        model_dfs_15_cm, model_onsets_15_cm, clim_df_15, clim_onset_15, config, 15
-    )
-    md_30_cm = get_plot_metrics(
-        model_dfs_30_cm, model_onsets_30_cm, clim_df_30, clim_onset_30, config, 30
-    )
+    save_data(md_30, config["output_dir"], "deterministic_scores_30_day_2019_2024")
 
-    save_data(md_15, config["output_dir"], "deterministic_scores_15_day_2019_2024")
+    print("Loading Model Data (extended period)...")
+    # Compute and save 15-day forecast metrics for extended period
+    model_dfs_15_ex, model_onsets_15_ex = get_model_dfs(
+        model_paths, year_ranges=EXTENDED_YEARS, config=config, days=15
+    )
+    md_15_ex = get_plot_metrics(
+        model_dfs_15_ex, model_onsets_15_ex, clim_df_15_ex,
+        clim_onset_15_ex, config["extended_years"], 15
+    )
     save_data(
         md_15_ex,
         config["output_dir"],
         "deterministic_scores_15_day_1965_1978_2019_2024_with_gencast",
     )
-    save_data(md_30, config["output_dir"], "deterministic_scores_30_day_2019_2024")
+
+    # Compute and save 30-day forecast metrics for extended period
+    model_dfs_30_ex, model_onsets_30_ex = get_model_dfs(
+        model_paths, year_ranges=EXTENDED_YEARS, config=config, days=30
+    )
+    md_30_ex = get_plot_metrics(
+        model_dfs_30_ex, model_onsets_30_ex, clim_df_30_ex,
+        clim_onset_30_ex, config["extended_years"], 30
+    )
     save_data(
         md_30_ex,
         config["output_dir"],
         "deterministic_scores_30_day_1965_1978_2019_2024_with_gencast",
     )
+
+    print("Loading Model Data (2004-2021)...")
+    # Compute and save 15-day forecast metrics for common period
+    model_dfs_15_cm, model_onsets_15_cm = get_model_dfs(
+        model_paths, year_ranges=YEAR_RANGES_COM, config=config, days=15
+    )
+    md_15_cm = get_plot_metrics(
+        model_dfs_15_cm, model_onsets_15_cm, clim_df_15_cm,
+        clim_onset_15_cm, config["common_years"], 15
+    )
     save_data(md_15_cm, config["output_dir"], "deterministic_scores_15_day_2004_2021")
+    
+    # Compute and save 30-day forecast metrics for common period
+    model_dfs_30_cm, model_onsets_30_cm = get_model_dfs(
+        model_paths, year_ranges=YEAR_RANGES_COM, config=config, days=30
+    )
+    md_30_cm = get_plot_metrics(
+        model_dfs_30_cm, model_onsets_30_cm, clim_df_30_cm,
+        clim_onset_30_cm, config["common_years"], 30
+    )    
     save_data(md_30_cm, config["output_dir"], "deterministic_scores_30_day_2004_2021")
 
     print("Saving WYI Data...")

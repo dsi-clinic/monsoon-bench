@@ -251,14 +251,14 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         return climatological_onset_da
 
     @staticmethod
-    def get_initialization_dates(year):
+    def get_initialization_dates(year, date_filter_year=2024):
         """Get initialization dates (Mondays and Thursdays from May-July).
 
         Uses the same logic as get_s2s_deterministic_twice_weekly but only returns dates.
         """
-        # Define date range from May 1 to July 31 of 2024 (template)
-        start_date = datetime(2024, 5, 1)
-        end_date = datetime(2024, 7, 31)
+        # Define date range from May 1 to July 31 of the filter year (template)
+        start_date = datetime(date_filter_year, 5, 1)
+        end_date = datetime(date_filter_year, 7, 31)
         date_range = pd.date_range(start_date, end_date, freq="D")
 
         # Find Mondays (weekday=0) and Thursdays (weekday=3)
@@ -383,7 +383,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
 
                         # Apply MOK filtering if requested
                         if mok:
-                            if clim_onset_date.date() >= mok_date.date():
+                            if clim_onset_date.date() > mok_date.date():
                                 # Valid onset after MOK date
                                 onset_date = clim_onset_date
                                 onsets_forecasted += 1
@@ -391,10 +391,6 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
                                 # Reset if before MOK date
                                 onset_day = None
                                 onset_date = None
-                        else:
-                            # No MOK filtering
-                            onset_date = clim_onset_date
-                            onsets_forecasted += 1
 
                     # Store result
                     result = {
@@ -520,9 +516,8 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
 
                 # Define forecast windows
                 valid_window_start = t_init + pd.Timedelta(days=verification_window)
-                valid_window_end = valid_window_start + pd.Timedelta(
-                    days=14
-                )  # Always 15 days long
+                #valid_window_end = t_init + pd.Timedelta(days=forecast_days) #Problem?
+                valid_window_end = valid_window_start + pd.Timedelta(days=14)  # Always 15 days long
 
                 whole_forecast_window_start = t_init + pd.Timedelta(days=1)
                 whole_forecast_window_end = t_init + pd.Timedelta(days=forecast_days)
@@ -631,6 +626,7 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
         onset_window=5,
         mok_month=6,
         mok_day=2,
+        date_filter_year=2024,
     ):
         """Compute climatology baseline metrics for multiple years.
 
@@ -657,7 +653,9 @@ class ClimatologyOnsetMetrics(OnsetMetricsBase):
             print(f"{'=' * 50}")
 
             # Get initialization dates for this year (same as model would use)
-            init_dates = ClimatologyOnsetMetrics.get_initialization_dates(year)
+            init_dates = ClimatologyOnsetMetrics.get_initialization_dates(
+                year, date_filter_year=date_filter_year
+            )
 
             # Load observed data for this year
             imd = OnsetMetricsBase.load_imd_rainfall(year, imd_folder)
