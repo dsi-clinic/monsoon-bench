@@ -456,8 +456,8 @@ def load_wyi(output_dir: str) -> None:
     return
 
 
-def save_all_data(model_paths: dict[str, str], config: dict[str, str]) -> None:
-    """Save all data for figures 1 and 4.
+def load_fig_1_4_data(model_paths: dict[str, str], config: dict[str, str]) -> None:
+    """Load data for figures 1 and 4.
 
     Args:
         model_paths: Dictionary of model paths.
