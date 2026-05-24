@@ -8,9 +8,9 @@ All required data for reproducing the figures can be downloaded from [Zenodo](ht
 
 ## Reproduction Guide
 
-### Figures 2 & Extended Data Figure 2 (fig 1/4):
-1. Open and run `load_fig1_fig4_data.ipynb`
-2. Open `fig4.ipynb` or `fig1.ipynb` and specify the data directory which saved the output of `load_fig1_fig4_data.ipynb`
+### Figures 1-5 :
+1. Open and run `load_paper_data.ipynb`
+2. Open the corresponding `figX.ipynb` and specify the data directory which saved the output of `load_paper_data.ipynb`
 3. Fully run the notebooks to produce the plots
 
 ### Figures 6-12
