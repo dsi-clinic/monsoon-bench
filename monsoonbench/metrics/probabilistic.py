@@ -12,8 +12,6 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from scipy import stats
-import itertools
-
 
 from monsoonbench.spatial.regions import points_inside_polygon
 

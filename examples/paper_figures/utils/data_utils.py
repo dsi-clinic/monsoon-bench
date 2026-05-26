@@ -99,7 +99,7 @@ def get_model_dfs(
                 mok_day=2,
                 date_filter_year=date_filter_year,
             )
-        except:
+        except Exception:
             model_df, onset_da_dict = d_metrics.compute_metrics_multiple_years(
                 years=year_ranges[model_name],
                 imd_folder=config["imd_folder"],
@@ -138,7 +138,7 @@ def get_plot_metrics(
         model_onsets: Dictionary of model names and their onset data arrays.
         metrics_df_clim: Climatological metrics dataframe.
         onset_da_clim: Climatological onset data array.
-        config: Dictionary of configuration parameters.
+        year_range: Range of years to get data for.
         day: Number of days to forecast (15 or 30).
 
     Returns:

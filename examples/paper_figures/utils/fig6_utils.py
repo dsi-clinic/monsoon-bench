@@ -1,32 +1,31 @@
 """Utility functions for generating Figure 6 of the monsoon benchmark paper."""
 
-from monsoonbench.metrics import (
-    ProbabilisticOnsetMetrics,
-    ClimatologyOnsetMetrics,
-    DeterministicOnsetMetrics,
-    OnsetMetricsBase
-)
-
-
-import xarray as xr
-import numpy as np
-import pandas as pd
-from pathlib import Path
-from matplotlib.path import Path as MplPath
-from datetime import datetime
 import itertools
+import warnings
+from datetime import datetime
+from pathlib import Path
 
-import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
+import matplotlib.colors as colors
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import xarray as xr
 from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Polygon
-import matplotlib.colors as colors
+from matplotlib.path import Path as MplPath
+from plot_config import LARGE_SIZE, MEDIUM_SIZE, SMALL_SIZE, params
 
-import warnings
+from monsoonbench.metrics import (
+    ClimatologyOnsetMetrics,
+    DeterministicOnsetMetrics,
+    OnsetMetricsBase,
+    ProbabilisticOnsetMetrics,
+)
 from monsoonbench.spatial.regions import get_india_outline
-warnings.filterwarnings('ignore')
-from plot_config import params, SMALL_SIZE, MEDIUM_SIZE, LARGE_SIZE
+
+warnings.filterwarnings("ignore")
 
 # Apply plot settings
 plt.rcParams.update(params)
@@ -36,16 +35,12 @@ p = ProbabilisticOnsetMetrics()
 d = DeterministicOnsetMetrics()
 o = OnsetMetricsBase()
 
-model_str = ['Climatology', 'IFS', 'AIFS', 'FuXi', 'Graphcast', 'GenCast', 'FuXi-S2S', 'NGCM']
+model_str = ["Climatology", "IFS", "AIFS", "FuXi", "Graphcast", "GenCast", "FuXi-S2S", "NGCM"]
 
 # Define the standard grid
 lat_grid = np.arange(8, 37, 4)  # 8:4:36
 lon_grid = np.arange(68, 101, 4)  # 68:4:100
 
-# Plot configuration
-SMALL_SIZE = 6
-MEDIUM_SIZE = 7
-LARGE_SIZE = 8
 
 # Define Core Monsoon Zone polygon (same as reference)
 polygon1_lon = np.array([86, 74, 74, 70, 70, 82, 82, 86, 86])
@@ -112,7 +107,8 @@ def points_inside_polygon(
 
 
 def get_clim_onset_da(config: dict,
-                   years = None):
+                   years = None) -> xr.Dataset:
+    """Function to load onset dataarray for climatology"""
     thresh_ds = xr.open_dataset(config["thresh_file"])
     thresh_slice = thresh_ds["MWmean"]
     clim_onset = c.compute_climatological_onset_dataset(
@@ -133,7 +129,7 @@ def fig6_multi_year_forecast_obs_pairs(
         mok: bool = True,
         date_filter_year: int = 2024,
         file_pattern: str = "{}.nc",
-    ):
+    ) -> pd.DataFrame:
         """Main function to perform multi-year reliability analysis.
 
         Args:
@@ -256,7 +252,7 @@ def fig6_multi_year_forecast_obs_pairs(
 
 def fig6_compute_onset_for_all_members(
         p_model, thresh_slice, onset_da, max_forecast_day=15, mok=True
-    ):
+    ) -> pd.DataFrame:
         """Compute onset dates for each ensemble member, initialization time, and grid point."""
         window = 5
         results_list = []
@@ -412,7 +408,11 @@ def fig6_compute_onset_for_all_members(
         return onset_df
 
 
-def get_fig_6_model_data(config):
+def get_fig_6_model_data(config) -> tuple:
+    """Function for loading model data for figure 6
+    
+    Probabalistic metrics.
+    """
     forecast_dfs_15 = {}
     forecast_dfs_30 = {}
     brier_model_paths = {
@@ -461,7 +461,7 @@ def fig6_multi_year_climatological_forecast_obs_pairs(
         file_pattern="tp_4p0_{}.nc",
         max_forecast_day=15,
         mok=True,
-    ):
+    ) -> pd.DataFrame:
         """Create climatological forecast-observation pairs for multiple target years.
 
         Parameters:
@@ -627,7 +627,8 @@ def fig6_multi_year_climatological_forecast_obs_pairs(
 def get_fig_6_clim_data(clim_onset, config,
                          model_forecast_dir=None,
                          date_filter_year=2024,
-                         mem_num=None):
+                         mem_num=None) -> tuple:
+    """Figure for loading climatology data for figure 6"""
     model_fp = model_forecast_dir or config["model_paths"]["NGCM"]
     effective_mem_num = mem_num if mem_num is not None else config["mem_num"]
 
@@ -662,7 +663,8 @@ def get_fig_6_clim_data(clim_onset, config,
     return climatology_obs_df_15, climatology_obs_df_30
 
 
-def fig6_metric_calculation(forecast_df, clim_df, n=15, model_name=None):
+def fig6_metric_calculation(forecast_df, clim_df, n=15, model_name=None) -> pd.DataFrame:
+    """Function for calculating Brier and RPS for figure 6"""
     rows = []
     for lat in forecast_df.lat.unique():
         for lon in forecast_df.lon.unique():
@@ -708,20 +710,18 @@ def fig6_metric_calculation(forecast_df, clim_df, n=15, model_name=None):
     return pd.DataFrame(rows)
 
 
-def create_gridded_data(df, metric, model, horizon):
-    """
-    Convert CSV data to gridded xarray DataArray with standard lat-lon grid
-    """
+def create_gridded_data(df, metric, model, horizon) -> xr.DataArray:
+    """Convert CSV data to gridded xarray DataArray with standard lat-lon grid"""
     # Filter data for specific model and horizon
-    subset = df[(df['dataset'] == model) & (df['horizon'] == horizon)]
+    subset = df[(df["dataset"] == model) & (df["horizon"] == horizon)]
     
     if subset.empty:
         # Return empty grid with NaNs if no data
         data_grid = np.full((len(lat_grid), len(lon_grid)), np.nan)
         return xr.DataArray(
             data_grid, 
-            coords={'lat': lat_grid, 'lon': lon_grid},
-            dims=['lat', 'lon']
+            coords={"lat": lat_grid, "lon": lon_grid},
+            dims=["lat", "lon"]
         )
     
     # Initialize grid with NaNs
@@ -729,8 +729,8 @@ def create_gridded_data(df, metric, model, horizon):
     
     # Fill grid with available data
     for _, row in subset.iterrows():
-        lat_val = row['lat']
-        lon_val = row['lon']
+        lat_val = row["lat"]
+        lon_val = row["lon"]
         
         # Find nearest grid point
         lat_idx = np.argmin(np.abs(lat_grid - lat_val))
@@ -745,15 +745,15 @@ def create_gridded_data(df, metric, model, horizon):
     # Create xarray DataArray
     da = xr.DataArray(
         data_grid, 
-        coords={'lat': lat_grid, 'lon': lon_grid},
-        dims=['lat', 'lon'],
-        attrs={'units': 'skill_score_percent', 'model': model, 'horizon': horizon, 'metric': metric}
+        coords={"lat": lat_grid, "lon": lon_grid},
+        dims=["lat", "lon"],
+        attrs={"units": "skill_score_percent", "model": model, "horizon": horizon, "metric": metric}
     )
     
     return da
 
 
-def create_discrete_colormap(levels, base_cmap='RdBu'):
+def create_discrete_colormap(levels, base_cmap="RdBu") -> tuple:
     """Create a discrete colormap with specified levels"""
     cmap = plt.cm.get_cmap(base_cmap)
     norm = colors.BoundaryNorm(levels, cmap.N, clip=True)
@@ -763,14 +763,11 @@ def create_discrete_colormap(levels, base_cmap='RdBu'):
 def create_skill_map_panel_xr(ax, data_array, model, metric_type,
                               config, model_labels, levels=None,
                               show_ylabel=True, title=None,
-                              ):
-    """
-    Create a skill map panel using xarray DataArray with India boundaries
-    """
-    
-    if data_array.isnull().all():
-        ax.text(0.5, 0.5, f'No data for {model}', 
-                transform=ax.transAxes, ha='center', va='center')
+                              ) -> None:
+    """Create a skill map panel using xarray DataArray with India boundaries"""
+    if data_array.isna().all():
+        ax.text(0.5, 0.5, f"No data for {model}", 
+                transform=ax.transAxes, ha="center", va="center")
         return None
     
     # Get coordinates
@@ -787,17 +784,17 @@ def create_skill_map_panel_xr(ax, data_array, model, metric_type,
         
     # Create discrete colormap and normalization
     if levels is not None:
-        cmap, norm = create_discrete_colormap(levels, 'RdBu')
+        cmap, norm = create_discrete_colormap(levels, "RdBu")
         vmin, vmax = None, None  # Let norm handle the range
     else:
-        cmap = 'RdBu'
+        cmap = "RdBu"
         norm = None
         vmin, vmax = -100, 100
     
     # Create pcolormesh plot
     im = ax.pcolormesh(LON_edges, LAT_edges, data_array.values,
                       transform=ccrs.PlateCarree(),
-                      cmap=cmap, norm=norm, vmin=vmin, vmax=vmax, shading='flat')
+                      cmap=cmap, norm=norm, vmin=vmin, vmax=vmax, shading="flat")
     
     # ...existing code for boundaries, polygon, etc...
     # Add India boundaries using the get_india_outline function
@@ -805,15 +802,15 @@ def create_skill_map_panel_xr(ax, data_array, model, metric_type,
         india_boundaries = get_india_outline(shp_file_path=config["shpfile_path"])
         for boundary in india_boundaries:
             india_lon, india_lat = boundary
-            ax.plot(india_lon, india_lat, color='black', linewidth=map_lw, 
+            ax.plot(india_lon, india_lat, color="black", linewidth=map_lw, 
                    transform=ccrs.PlateCarree())
     except Exception as e:
         print(f"Warning: Could not load India boundaries: {e}")
-        ax.add_feature(cfeature.COASTLINE, linewidth=map_lw, color='black')
+        ax.add_feature(cfeature.COASTLINE, linewidth=map_lw, color="black")
     
     # Add Core Monsoon Zone polygon
     polygon = Polygon(list(zip(polygon1_lon, polygon1_lat)), 
-                     fill=False, edgecolor='black', linewidth=polygon_lw,
+                     fill=False, edgecolor="black", linewidth=polygon_lw,
                      transform=ccrs.PlateCarree())
     ax.add_patch(polygon)
     
@@ -833,16 +830,16 @@ def create_skill_map_panel_xr(ax, data_array, model, metric_type,
     # Calculate and display average
     if values_in_polygon:
         avg_value = np.mean(values_in_polygon)
-        ax.text(0.95, 0.05, f'{avg_value:.1f}%', 
+        ax.text(0.95, 0.05, f"{avg_value:.1f}%", 
                 transform=ax.transAxes,
-                horizontalalignment='right', verticalalignment='bottom',
-                color='black', fontsize=MEDIUM_SIZE, fontweight='normal')
+                horizontalalignment="right", verticalalignment="bottom",
+                color="black", fontsize=MEDIUM_SIZE, fontweight="normal")
     
     # Add model name text
     model_label = model_labels.get(model, model.upper())
     ax.text(0.95, 0.95, model_label, transform=ax.transAxes,
-            horizontalalignment='right', verticalalignment='top',
-            color='black', fontsize=MEDIUM_SIZE, fontweight='normal')
+            horizontalalignment="right", verticalalignment="top",
+            color="black", fontsize=MEDIUM_SIZE, fontweight="normal")
     
     # Set axis limits and ticks
     ax.set_xlim([lons[0]-4, 100])
@@ -863,20 +860,20 @@ def create_skill_map_panel_xr(ax, data_array, model, metric_type,
     ax.set_xticklabels(xticklabels)
     
     # Styling
-    ax.tick_params(axis='both', which='major', labelsize=SMALL_SIZE, 
+    ax.tick_params(axis="both", which="major", labelsize=SMALL_SIZE, 
                   length=tick_length, width=tick_width)
-    for side in ['top', 'right', 'bottom', 'left']:
+    for side in ["top", "right", "bottom", "left"]:
         ax.spines[side].set_linewidth(panel_linewidth)
     
     # Remove grid lines
     ax.grid(False)
     ax.set_axisbelow(False)
-    ax.tick_params(axis='x', which='minor', bottom=False, top=False)
-    ax.tick_params(axis='y', which='minor', left=False, right=False)
+    ax.tick_params(axis="x", which="minor", bottom=False, top=False)
+    ax.tick_params(axis="y", which="minor", left=False, right=False)
     
     if title:
         ax.text(0.02, 1.02, title, transform=ax.transAxes, 
-                verticalalignment='bottom', fontsize=LARGE_SIZE, fontweight='normal')
+                verticalalignment="bottom", fontsize=LARGE_SIZE, fontweight="normal")
     
     return im, levels
 
@@ -884,9 +881,9 @@ def create_skill_map_panel_xr(ax, data_array, model, metric_type,
 # Update the main figure creation function
 def create_skill_maps_figure_xr(df,
                                 config,
-                                models:list = ['IFS', 'FuXi-S2S', 'NGCM']):
+                                ) -> plt.Figure:
     """Create the complete figure using xarray DataArrays with discrete color levels"""
-    
+    models = ["IFS", "FuXi-S2S", "NGCM"]
     # Create the main figure
     fig = plt.figure(figsize=(8, 8), dpi=300)
     
@@ -900,23 +897,23 @@ def create_skill_maps_figure_xr(df,
     
     # ...existing titles and row_configs...
     titles = {
-        0: '(a) Brier Skill Score: 15-day forecast',
-        1: '(b) Brier Skill Score: 30-day forecast', 
-        2: '(c) Ranked Probability Skill Score: 15-day forecast',
-        3: '(d) Ranked Probability Skill Score: 30-day forecast'
+        0: "(a) Brier Skill Score: 15-day forecast",
+        1: "(b) Brier Skill Score: 30-day forecast", 
+        2: "(c) Ranked Probability Skill Score: 15-day forecast",
+        3: "(d) Ranked Probability Skill Score: 30-day forecast"
     }
     
     model_labels = {
-    'IFS': 'IFS',
-    'FuXi-S2S': 'FuXi-S2S',
-    'NGCM': 'NGCM'
+    "IFS": "IFS",
+    "FuXi-S2S": "FuXi-S2S",
+    "NGCM": "NGCM"
     }
 
     row_configs = [
-        ('fair_brier_skill', 15),
-        ('fair_brier_skill', 30),
-        ('fair_rps_skill', 15),
-        ('fair_rps_skill', 30)
+        ("fair_brier_skill", 15),
+        ("fair_brier_skill", 30),
+        ("fair_rps_skill", 15),
+        ("fair_rps_skill", 30)
     ]
     
     axes = []
@@ -928,7 +925,7 @@ def create_skill_maps_figure_xr(df,
         row_data = []
         
         # Choose levels based on metric
-        if 'brier' in metric:
+        if "brier" in metric:
             levels = brier_levels
         else:  # RPS
             levels = rps_levels
@@ -963,7 +960,7 @@ def create_skill_maps_figure_xr(df,
     
     # Update colorbar creation with discrete levels
     if len(colorbars_data) >= 2:
-        brier_data = [item for item in colorbars_data if 'brier' in item[2]]
+        brier_data = [item for item in colorbars_data if "brier" in item[2]]
         if brier_data:
             _, im, _, levels = brier_data[0]
             
@@ -975,13 +972,13 @@ def create_skill_maps_figure_xr(df,
             
             cax_brier = fig.add_axes([0.8, center_y - half_height/2, 0.01, half_height])
             
-            cbar_brier = fig.colorbar(im, cax=cax_brier, orientation='vertical', extend='both')
+            cbar_brier = fig.colorbar(im, cax=cax_brier, orientation="vertical", extend="both")
             cbar_brier.set_ticks(levels[::2])  # Show every other tick to avoid crowding
-            cbar_brier.set_label('BSS (%)', fontsize=MEDIUM_SIZE, rotation=270, labelpad=8)
+            cbar_brier.set_label("BSS (%)", fontsize=MEDIUM_SIZE, rotation=270, labelpad=8)
             cbar_brier.ax.tick_params(labelsize=SMALL_SIZE, length=2, width=1)
     
     if len(colorbars_data) >= 4:
-        rps_data = [item for item in colorbars_data if 'rps' in item[2]]
+        rps_data = [item for item in colorbars_data if "rps" in item[2]]
         if rps_data:
             _, im, _, levels = rps_data[0]
             
@@ -993,9 +990,9 @@ def create_skill_maps_figure_xr(df,
             
             cax_rps = fig.add_axes([0.8, center_y - half_height/2, 0.01, half_height])
             
-            cbar_rps = fig.colorbar(im, cax=cax_rps, orientation='vertical', extend='both')
+            cbar_rps = fig.colorbar(im, cax=cax_rps, orientation="vertical", extend="both")
             cbar_rps.set_ticks(levels[::2])  # Show every other tick
-            cbar_rps.set_label('RPSS (%)', fontsize=MEDIUM_SIZE, rotation=270, labelpad=8)
+            cbar_rps.set_label("RPSS (%)", fontsize=MEDIUM_SIZE, rotation=270, labelpad=8)
             cbar_rps.ax.tick_params(labelsize=SMALL_SIZE, length=2, width=1)
     
     # Remove x-tick labels from top three rows
@@ -1012,10 +1009,10 @@ def create_skill_maps_figure_xr(df,
     return fig, data_arrays
 
 
-def generate_fig6(config):
-
+def generate_fig6(config) -> plt.Figure:
+    """Function for generating figure 6"""
     try:
-        output_dir = config['output_dir']
+        output_dir = config["output_dir"]
         fig6_metrics = pd.read_csv(f"{output_dir}/probabalistic_scores_15_30_day_2004_2021.csv")
 
     except FileNotFoundError:

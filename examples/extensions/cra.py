@@ -17,6 +17,65 @@ from scipy import ndimage
 
 @dataclass(frozen=True)
 class CraResult:
+    """Immutable results from a single CRA displacement and error decomposition.
+
+    Attributes:
+    ----------
+    case:
+        Identifier string for the forecast-observation pair.
+    imposed_forecast_dx:
+        Known eastward forecast displacement error in grid points (used in
+        idealized experiments where the true error is prescribed; ``np.nan``
+        for real-data cases).
+    imposed_forecast_dy:
+        Known northward forecast displacement error in grid points (``np.nan``
+        for real-data cases).
+    corrective_shift_dx:
+        Eastward shift applied to the forecast to minimize MSE.
+    corrective_shift_dy:
+        Northward shift applied to the forecast to minimize MSE.
+    diagnosed_forecast_error_dx:
+        Diagnosed eastward forecast displacement error (``-corrective_shift_dx``).
+    diagnosed_forecast_error_dy:
+        Diagnosed northward forecast displacement error (``-corrective_shift_dy``).
+    n_obs_objects:
+        Number of contiguous rain objects in the observed field above threshold.
+    n_fcst_objects:
+        Number of contiguous rain objects in the forecast field above threshold.
+    mse_total:
+        Total MSE between the original forecast and observations over the CRA mask.
+    mse_shifted:
+        MSE between the best-fit shifted forecast and observations over the
+        relaxed CRA mask.
+    mse_displacement:
+        MSE component attributable to spatial displacement
+        (``max(mse_total - mse_shifted, 0)``).
+    mse_volume:
+        MSE component attributable to volume (mean bias) error.
+    mse_pattern:
+        MSE component attributable to residual pattern error after displacement
+        and volume corrections.
+    pct_displacement:
+        Displacement error as a percentage of ``mse_total``.
+    pct_volume:
+        Volume error as a percentage of ``mse_total``.
+    pct_pattern:
+        Pattern error as a percentage of ``mse_total``.
+    mean_obs:
+        Mean observed rain rate over the valid shifted CRA mask.
+    mean_fcst_shifted:
+        Mean shifted forecast rain rate over the valid shifted CRA mask.
+    peak_obs:
+        Maximum observed rain rate over the valid shifted CRA mask.
+    peak_fcst_shifted:
+        Maximum shifted forecast rain rate over the valid shifted CRA mask.
+    spatial_corr_original:
+        Spatial correlation between the original forecast and observations over
+        the valid mask; ``np.nan`` for constant fields or insufficient data.
+    spatial_corr_shifted:
+        Spatial correlation between the shifted forecast and observations over
+        the valid mask; ``np.nan`` for constant fields or insufficient data.
+    """
     case: str
     imposed_forecast_dx: float
     imposed_forecast_dy: float
@@ -106,8 +165,7 @@ def best_shift_by_mse(
     dy_values: range | None = None,
     dx_values: range | None = None,
 ) -> tuple[int, int, np.ndarray, np.ndarray, float]:
-    """
-    Find the integer forecast translation that minimizes MSE over a CRA mask.
+    """Find the integer forecast translation that minimizes MSE over a CRA mask.
 
     The mask is relaxed: it is the union of observed rain, original forecast
     rain, and shifted forecast rain above threshold. This permits matching

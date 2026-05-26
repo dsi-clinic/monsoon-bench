@@ -168,7 +168,6 @@ def get_default_four_degree_model_specs(
         data_dir: Path, model_paths: dict[str, str]
 ) -> dict[str, dict[str, Any]]:
     """Return default 4-degree model catalog used in paper-style analysis."""
-    forecast_dir = data_dir / "model_forecast_data"
     return {
         "ifs": {
             "model_type": "probabilistic",

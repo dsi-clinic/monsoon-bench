@@ -1,5 +1,4 @@
-"""
-Real-data CRA rainfall verification demo using ROMP sample or root data.
+"""Real-data CRA rainfall verification demo using ROMP sample or root data.
 
 This stays disconnected from the main ROMP driver. It demonstrates how the
 reusable CRA functions in `momp.metrics.cra` can be applied to actual forecast
@@ -18,10 +17,19 @@ Run from the repo root:
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict
 import os
-from pathlib import Path
 import sys
+from dataclasses import asdict
+from pathlib import Path
+
+import geopandas as gpd
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import shapely
+import xarray as xr
+from momp.metrics.cra import CraResult, cra_decomposition
+from momp.utils.standard import dim_fmt, dim_fmt_model
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEMO_DIR = Path(__file__).resolve().parents[1]
@@ -30,18 +38,10 @@ OUTPUT_DIR = Path(__file__).resolve().parent / "output"
 os.environ.setdefault("MPLCONFIGDIR", str(OUTPUT_DIR / ".mplconfig"))
 PLOT_BACKGROUND = "#fafafa"
 
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import shapely
-import xarray as xr
-import geopandas as gpd
 
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from momp.metrics.cra import CraResult, cra_decomposition
-from momp.utils.standard import dim_fmt, dim_fmt_model
 
 
 DEMO_MODEL_CONFIGS = {
@@ -561,6 +561,7 @@ def run_model_case(
 
 
 def parse_args() -> argparse.Namespace:
+    """Function for parsing command line arguments"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--data-source",
@@ -616,6 +617,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Function for running full cra pipeline"""
     args = parse_args()
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     init_time = (
