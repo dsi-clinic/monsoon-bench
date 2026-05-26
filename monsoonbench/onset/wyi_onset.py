@@ -13,7 +13,6 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-
 # Calendar year range matching the MATLAB script (1979-2024)
 _WYI_YEAR_RANGE = np.arange(1979, 2025)
 _WYI_VARIABLE = "webster_yang_index"
@@ -71,7 +70,7 @@ def get_wyi_onset(
         Directory containing files named ``wyi_daily_{year}.nc``, each
         with a variable ``webster_yang_index`` of length 365 or 366.
 
-    Returns
+    Returns:
     -------
     wyi_onset:
         Onset date as a ``pd.Timestamp``, or ``None`` if onset is not
@@ -83,7 +82,7 @@ def get_wyi_onset(
         Climatological mean WYI (length 365), computed over 1979-2024
         with ``NaN`` values omitted.
 
-    Warns
+    Warns:
     -----
     UserWarning
         If the detected onset date is before May 20.
@@ -122,7 +121,8 @@ def get_wyi_onset(
         if wyi_onset < early_onset_threshold:
             warnings.warn(
                 f"The WYI onset date ({wyi_onset.strftime('%Y-%m-%d')}) "
-                f"is earlier than May 20."
+                f"is earlier than May 20.",
+                stacklevel=1
             )
 
     return wyi_onset, wyi_smoothed, wyi_clim

@@ -1,24 +1,23 @@
 """Utility functions for generating Figures 7-12 of the monsoon benchmark paper."""
 
-from monsoonbench.metrics import (
-    ProbabilisticOnsetMetrics,
-    ClimatologyOnsetMetrics,
-    DeterministicOnsetMetrics,
-    OnsetMetricsBase
-)
-
-import xarray as xr
-import numpy as np
-
+import warnings
 
 import matplotlib.pyplot as plt
+import numpy as np
+import xarray as xr
 from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Polygon
+from plot_config import LARGE_SIZE, MEDIUM_SIZE, SMALL_SIZE, params
 
-import warnings
-from monsoonbench.spatial.regions import get_india_outline
-warnings.filterwarnings('ignore')
-from plot_config import params, contourLevels, colormap, savefig_format, SMALL_SIZE, MEDIUM_SIZE, LARGE_SIZE
+from monsoonbench.metrics import (
+    ClimatologyOnsetMetrics,
+    DeterministicOnsetMetrics,
+    OnsetMetricsBase,
+    ProbabilisticOnsetMetrics,
+)
+from monsoonbench.spatial.regions import get_india_outline, points_inside_polygon
+
+warnings.filterwarnings("ignore")
 
 # Apply plot settings
 plt.rcParams.update(params)
@@ -28,16 +27,12 @@ p = ProbabilisticOnsetMetrics()
 d = DeterministicOnsetMetrics()
 o = OnsetMetricsBase()
 
-model_str = ['Climatology', 'IFS', 'AIFS', 'FuXi', 'Graphcast', 'GenCast', 'FuXi-S2S', 'NGCM']
+model_str = ["Climatology", "IFS", "AIFS", "FuXi", "Graphcast", "GenCast", "FuXi-S2S", "NGCM"]
 
 # Define the standard grid
 lat_grid = np.arange(8, 37, 4)  # 8:4:36
 lon_grid = np.arange(68, 101, 4)  # 68:4:100
 
-# Plot configuration
-SMALL_SIZE = 6
-MEDIUM_SIZE = 7
-LARGE_SIZE = 8
 
 # Define Core Monsoon Zone polygon (same as reference)
 polygon1_lon = np.array([86, 74, 74, 70, 70, 82, 82, 86, 86])
@@ -66,7 +61,7 @@ PROB_MODELS = {"FuXi-S2S", "NGCM", "IFS", "GenCast"}
 DET_MODELS = {"AIFS", "FuXi", "Graphcast"}
 
 # Helpers
-def load_spatial_dict(save_path, model_names=model_str):
+def load_spatial_dict(save_path, model_names=model_str) -> dict:
     """Load merged NetCDF and split back into per-model dict."""
     merged = xr.open_dataset(save_path)
     return {
@@ -81,7 +76,8 @@ def ensure_lat_lon_sorted(ds: xr.Dataset) -> xr.Dataset:
     return ds.sortby(["lat", "lon"])
 
 
-def get_spatial_fig_clim_data(config, n=15):
+def get_spatial_fig_clim_data(config, n=15) -> xr.DataArray:
+    """Function for loading spatial climatological data for figures 7-12"""
     if n==15:
         metrics_df_clim_15, onset_da_clim_15 = (
                 c.compute_climatology_baseline_multiple_years(
@@ -126,7 +122,8 @@ def get_spatial_fig_clim_data(config, n=15):
         
         return spatial_clim_30_day
 
-def get_spatial_fig_model_data(config, n=15):
+def get_spatial_fig_model_data(config, n=15) -> tuple:
+    """Function for loading spatial model data for figures 7-12"""
     prob_model_paths = {
         "FuXi-S2S": config["model_paths"]["FuXi-S2S"],  # FuXi_S2S model
         "NGCM": config["model_paths"]["NGCM"],  # NGCM model
@@ -261,7 +258,7 @@ def get_spatial_fig_model_data(config, n=15):
             model_onsets[model_name] = onset_da_dict_30
         return model_dfs, model_onsets
     
-def build_spatial_xarray_dict(config, model_dfs, model_onsets, clim_data):
+def build_spatial_xarray_dict(config, model_dfs, model_onsets, clim_data) -> dict:
     """Return dict of xr.Dataset for each model, fully standardized."""
     out={}
 
@@ -297,14 +294,11 @@ def build_spatial_xarray_dict(config, model_dfs, model_onsets, clim_data):
 
 def create_map_panel_colored_stats(ax, data, lon, lat, model_idx, model_name, 
                                 #   mae_cmz_mean, std_er, far_cmz_mean, mr_cmz_mean,
-                                  data_type='MAE', vmin=0, vmax=15, cmap='YlOrRd', n_colors=6, 
+                                  data_type="MAE", vmin=0, vmax=15, cmap="YlOrRd", n_colors=6, 
                                   show_ylabel=True, show_xlabel=True, title=None,
                                   shpfile_path=None
-                                  ):
-    """
-    Create a map panel with colored statistics text for MAE, FAR, and MR
-    """
-    
+                                  ) -> None:
+    """Create a map panel with colored statistics text for MAE, FAR, and MR"""
     # Create meshgrid for plotting
     lon_edges = np.concatenate([lon - (lon[1]-lon[0])/2, [lon[-1] + (lon[1]-lon[0])/2]])
     lat_edges = np.concatenate([lat - (lat[1]-lat[0])/2, [lat[-1] + (lat[1]-lat[0])/2]])
@@ -327,26 +321,26 @@ def create_map_panel_colored_stats(ax, data, lon, lat, model_idx, model_name,
     
     # Use pcolormesh for proper grid cell alignment
     im = ax.pcolormesh(LON_edges, LAT_edges, masked_data, 
-                       cmap=cmap, vmin=vmin, vmax=vmax, shading='flat')
+                       cmap=cmap, vmin=vmin, vmax=vmax, shading="flat")
     
     # Add India map outline
     india_boundaries = get_india_outline(shp_file_path=shpfile_path)
     for boundary in india_boundaries:
         india_lon, india_lat = boundary
-        ax.plot(india_lon, india_lat, color='black', linewidth=map_lw)
+        ax.plot(india_lon, india_lat, color="black", linewidth=map_lw)
 
     polygon1_lon = np.array([86, 74, 74, 70, 70, 82, 82, 86, 86])
     polygon1_lat = np.array([18, 18, 22, 22, 30, 30, 26, 26, 18])
     
     # Add polygon for Core Monsoon Zone
     polygon = Polygon(list(zip(polygon1_lon, polygon1_lat)), 
-                     fill=False, edgecolor='black', linewidth=polygon_lw)
+                     fill=False, edgecolor="black", linewidth=polygon_lw)
     ax.add_patch(polygon)
     
     # Add model name text in top-right
     ax.text(0.95, 0.95, model_name, transform=ax.transAxes,
-            horizontalalignment='right', verticalalignment='top',
-            color='black', fontsize=MEDIUM_SIZE, fontweight='normal')
+            horizontalalignment="right", verticalalignment="top",
+            color="black", fontsize=MEDIUM_SIZE, fontweight="normal")
 
     # NO GRID VALUES - Remove the grid value text completely
     
@@ -380,42 +374,41 @@ def create_map_panel_colored_stats(ax, data, lon, lat, model_idx, model_name,
     polygon_data = np.where(inside_mask, plt_ar, np.nan)
     cmz_mean = np.nanmean(polygon_data)
 
-    if data_type == 'MAE':
-        metric_text = f'MAE: {cmz_mean:.1f}'
-        text_color = 'black'
-    elif data_type == 'FAR':
-        metric_text = f'FAR: {cmz_mean:.1f}%'
-        text_color = 'black'    
-    elif data_type == 'MR':
-        metric_text = f'MR: {cmz_mean:.1f}%'
-        text_color = 'black'
+    if data_type == "MAE":
+        metric_text = f"MAE: {cmz_mean:.1f}"
+        text_color = "black"
+    elif data_type == "FAR":
+        metric_text = f"FAR: {cmz_mean:.1f}%"
+        text_color = "black"    
+    elif data_type == "MR":
+        metric_text = f"MR: {cmz_mean:.1f}%"
+        text_color = "black"
 
     ax.text(0.96, 0.04, metric_text, transform=ax.transAxes,
-            color=text_color, verticalalignment='bottom', 
-            horizontalalignment='right', fontweight='normal', fontsize=MEDIUM_SIZE)
+            color=text_color, verticalalignment="bottom", 
+            horizontalalignment="right", fontweight="normal", fontsize=MEDIUM_SIZE)
     
     # Remove grid lines
     ax.grid(False)
     ax.set_axisbelow(False)
-    ax.tick_params('both', length=tick_length, width=tick_width, which='major')
-    ax.tick_params(axis='x', which='minor', bottom=False, top=False)
-    ax.tick_params(axis='y', which='minor', left=False, right=False)
+    ax.tick_params("both", length=tick_length, width=tick_width, which="major")
+    ax.tick_params(axis="x", which="minor", bottom=False, top=False)
+    ax.tick_params(axis="y", which="minor", left=False, right=False)
 
     if title:
         ax.text(0.02, 1.02, title, transform=ax.transAxes, 
-                verticalalignment='bottom', fontsize=LARGE_SIZE, fontweight='normal')
+                verticalalignment="bottom", fontsize=LARGE_SIZE, fontweight="normal")
 
     return im
 
 
 def create_8_panel_figure(data, lat, lon,
-                         data_type='MAE', vmin=0, vmax=15, cmap='YlOrRd', n_colors=10,
-                         shpfile_path=None):
-    """
-    Create an 8-panel figure showing all models in a 4x2 grid with colorbar covering rows 2-3
+                         data_type="MAE", vmin=0, vmax=15, cmap="YlOrRd", n_colors=10,
+                         shpfile_path=None) -> plt.Figure:
+    """Create an 8-panel figure showing all models in a 4x2 grid with colorbar covering rows 2-3
+
     data_type: 'MAE', 'FAR', or 'MR' for title and filename
     """
-    
     # Create the main figure - adjusted height for 4 rows
     fig = plt.figure(figsize=(6, 9), dpi=300)
     
@@ -455,11 +448,11 @@ def create_8_panel_figure(data, lat, lon,
         images.append(im)
         
         # Style the axis
-        ax.tick_params(axis='both', which='major', labelsize=SMALL_SIZE, 
+        ax.tick_params(axis="both", which="major", labelsize=SMALL_SIZE, 
                       length=tick_length, width=tick_width)
-        for side in ['top', 'right', 'bottom', 'left']:
+        for side in ["top", "right", "bottom", "left"]:
             ax.spines[side].set_linewidth(panel_linewidth)
-        ax.set_aspect('equal', adjustable='box')
+        ax.set_aspect("equal", adjustable="box")
         ax.grid(False)
     
     # Create colorbar spanning rows 2 and 3 (indices 1 and 2)
@@ -482,18 +475,18 @@ def create_8_panel_figure(data, lat, lon,
     ])
     
     # Set colorbar properties based on data type
-    if data_type == 'MAE':
-        cbar = fig.colorbar(images[0], cax=cax, orientation='vertical', extend='max')
+    if data_type == "MAE":
+        cbar = fig.colorbar(images[0], cax=cax, orientation="vertical", extend="max")
         cbar.set_ticks(np.arange(0, vmax+1, 3))
-        cbar.set_label('MAE (days)')
-    elif data_type == 'FAR':
-        cbar = fig.colorbar(images[0], cax=cax, orientation='vertical', extend='max')
+        cbar.set_label("MAE (days)")
+    elif data_type == "FAR":
+        cbar = fig.colorbar(images[0], cax=cax, orientation="vertical", extend="max")
         cbar.set_ticks(np.arange(0, vmax+1, 12))
-        cbar.set_label('False alarm rate (%)')
-    elif data_type == 'MR':
-        cbar = fig.colorbar(images[0], cax=cax, orientation='vertical')
+        cbar.set_label("False alarm rate (%)")
+    elif data_type == "MR":
+        cbar = fig.colorbar(images[0], cax=cax, orientation="vertical")
         cbar.set_ticks(np.arange(0, vmax+1, 20))
-        cbar.set_label('Miss rate (%)')
+        cbar.set_label("Miss rate (%)")
 
     cbar.ax.minorticks_off()
     cbar.ax.tick_params(length=2, width=1)
@@ -513,18 +506,17 @@ def create_8_panel_figure(data, lat, lon,
 def create_8_panel_figure_xarray(
     spatial_dict,
     metric,
-    data_type='MAE',
+    data_type="MAE",
     vmin=0,
     vmax=15,
-    cmap='YlOrRd',
+    cmap="YlOrRd",
     n_colors=10,
     shpfile_path=None
-):
-    """
-    spatial_dict: dict[str, xr.Dataset]
+) -> plt.Figure:
+    """spatial_dict: dict[str, xr.Dataset]
+
     metric: str (e.g. 'mean_mae', 'false_alarm_rate', 'miss_rate')
     """
-
     model_str = list(spatial_dict.keys())
     data_arrays = [spatial_dict[m][metric] for m in model_str]
 
@@ -579,15 +571,15 @@ def create_8_panel_figure_xarray(
         images.append(im)
 
         # ---- styling (UNCHANGED) ----
-        ax.tick_params(axis='both', which='major',
+        ax.tick_params(axis="both", which="major",
                        labelsize=SMALL_SIZE,
                        length=tick_length,
                        width=tick_width)
 
-        for side in ['top', 'right', 'bottom', 'left']:
+        for side in ["top", "right", "bottom", "left"]:
             ax.spines[side].set_linewidth(panel_linewidth)
 
-        ax.set_aspect('equal', adjustable='box')
+        ax.set_aspect("equal", adjustable="box")
         ax.grid(False)
 
     # ---- colorbar (UNCHANGED) ----
@@ -601,18 +593,18 @@ def create_8_panel_figure_xarray(
         row2_pos.y1 - row3_pos.y0
     ])
 
-    cbar = fig.colorbar(images[0], cax=cax, orientation='vertical', extend='max')
+    cbar = fig.colorbar(images[0], cax=cax, orientation="vertical", extend="max")
 
-    if data_type == 'MAE':
-        cbar.set_label('MAE (days)')
+    if data_type == "MAE":
+        cbar.set_label("MAE (days)")
         cbar.set_ticks(np.arange(0, vmax + 1, 3))
 
-    elif data_type == 'FAR':
-        cbar.set_label('False alarm rate (%)')
+    elif data_type == "FAR":
+        cbar.set_label("False alarm rate (%)")
         cbar.set_ticks(np.arange(0, vmax + 1, 12))
 
-    elif data_type == 'MR':
-        cbar.set_label('Miss rate (%)')
+    elif data_type == "MR":
+        cbar.set_label("Miss rate (%)")
         cbar.set_ticks(np.arange(0, vmax + 1, 20))
 
     cbar.ax.minorticks_off()
@@ -623,9 +615,8 @@ def create_8_panel_figure_xarray(
     return fig
 
 
-def generate_fig_7_9_11(config):
+def generate_fig_7_9_11(config) -> tuple:
     """15-day spatial figures (MAE, FAR, MR)."""
-
     save_path = config["output_dir"] + "/spatial_scores_15_day_2019_2024.nc"
 
     try:
@@ -665,14 +656,14 @@ def generate_fig_7_9_11(config):
     far_fig = create_8_panel_figure_xarray(spatial_dict_15,
                                  "false_alarm_rate",
                                  data_type="FAR",
-                                 vmin=0, vmax=60, cmap='Blues',
+                                 vmin=0, vmax=60, cmap="Blues",
                                  n_colors=10,
                                  shpfile_path=config["shpfile_path"],
                                  )
     mr_fig = create_8_panel_figure_xarray(spatial_dict_15,
                                  "miss_rate",
                                  data_type="MR",
-                                 vmin=0, vmax=100, cmap='Blues',
+                                 vmin=0, vmax=100, cmap="Blues",
                                  n_colors=10,
                                  shpfile_path=config["shpfile_path"],
                                  )
@@ -688,9 +679,8 @@ def generate_fig_7_9_11(config):
 
     
 
-def generate_fig_8_10_12(config):
+def generate_fig_8_10_12(config) -> tuple:
     """30-day spatial figures (MAE, FAR, MR)."""
-
     save_path = config["output_dir"] + "/spatial_scores_30_day_2019_2024.nc"
 
     try:
@@ -732,14 +722,14 @@ def generate_fig_8_10_12(config):
     far_fig = create_8_panel_figure_xarray(spatial_dict_30,
                                  "false_alarm_rate",
                                  data_type="FAR",
-                                 vmin=0, vmax=60, cmap='Blues',
+                                 vmin=0, vmax=60, cmap="Blues",
                                  n_colors=10,
                                  shpfile_path=config["shpfile_path"],
                                  )
     mr_fig = create_8_panel_figure_xarray(spatial_dict_30,
                                  "miss_rate",
                                  data_type="MR",
-                                 vmin=0, vmax=100, cmap='Blues',
+                                 vmin=0, vmax=100, cmap="Blues",
                                  n_colors=10,
                                  shpfile_path=config["shpfile_path"],
                                  )

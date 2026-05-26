@@ -33,12 +33,10 @@ Usage example
 """
 
 import math
-import warnings
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
 import pandas as pd
-
 
 # Climatological WYI value on June 2 (from MATLAB code comment)
 _WYI_CLIM_THRESHOLD = -14.8
@@ -117,7 +115,7 @@ class WYIOnsetMetrics:
         wyi_clim_threshold:
             WYI value below which onset is declared.
 
-        Returns
+        Returns:
         -------
         List of onset ``pd.Timestamp`` (or ``None``) for each IC.
         """
@@ -171,7 +169,7 @@ class WYIOnsetMetrics:
             Percentage (0-100) of members that must show onset for the
             ensemble mean onset to be accepted.
 
-        Returns
+        Returns:
         -------
         List of onset ``pd.Timestamp`` (or ``None``) for each IC.
         """
@@ -230,7 +228,7 @@ class WYIOnsetMetrics:
         tol:
             Tolerance in days for a prediction to count as a true positive.
 
-        Returns
+        Returns:
         -------
         dict with keys: TP, FP, FN, TN, num_onset, num_no_onset,
         mae_tp (list), mae_fp (list).
@@ -267,11 +265,11 @@ class WYIOnsetMetrics:
                 else:
                     TN += 1
 
-        return dict(
-            TP=TP, FP=FP, FN=FN, TN=TN,
-            num_onset=num_onset, num_no_onset=num_no_onset,
-            mae_tp=mae_tp, mae_fp=mae_fp,
-        )
+        return {
+            "TP": TP, "FP": FP, "FN": FN, "TN": TN,
+            "num_onset": num_onset, "num_no_onset": num_no_onset,
+            "mae_tp": mae_tp, "mae_fp": mae_fp,
+        }
 
     # ------------------------------------------------------------------
     # Per-year metrics
@@ -314,13 +312,13 @@ class WYIOnsetMetrics:
         wyi_clim_threshold:
             WYI threshold value for onset detection.
 
-        Returns
+        Returns:
         -------
         dict with keys: TP, FP, FN, TN, num_onset, num_no_onset, mae (scalar).
         All values are NaN if *gt_onset* is ``None`` or no valid ICs exist.
         """
-        _nan_result = dict(TP=np.nan, FP=np.nan, FN=np.nan, TN=np.nan,
-                           num_onset=np.nan, num_no_onset=np.nan, mae=np.nan)
+        _nan_result = {"TP": np.nan, "FP": np.nan, "FN": np.nan, "TN": np.nan,
+               "num_onset": np.nan, "num_no_onset": np.nan, "mae": np.nan}
 
         if gt_onset is None:
             return _nan_result
@@ -356,11 +354,11 @@ class WYIOnsetMetrics:
         mae_vals = stats["mae_tp"] + stats["mae_fp"]
         mae = float(np.mean(mae_vals)) if mae_vals else np.nan
 
-        return dict(
-            TP=stats["TP"], FP=stats["FP"], FN=stats["FN"], TN=stats["TN"],
-            num_onset=stats["num_onset"], num_no_onset=stats["num_no_onset"],
-            mae=mae,
-        )
+        return {
+                "TP": stats["TP"], "FP": stats["FP"], "FN": stats["FN"], "TN": stats["TN"],
+                "num_onset": stats["num_onset"], "num_no_onset": stats["num_no_onset"],
+                "mae": mae,
+            }
 
     # ------------------------------------------------------------------
     # Multi-year aggregation
@@ -376,13 +374,12 @@ class WYIOnsetMetrics:
             List of dicts returned by :meth:`compute_year_metrics`, one
             per year.
 
-        Returns
+        Returns:
         -------
         dict with keys:
             mae_avg, std_er, mae_yr (array), false_alarm, miss_rate
         """
         mae_yr = np.array([r["mae"] for r in year_results], dtype=float)
-        tp_arr = np.array([r["TP"] for r in year_results], dtype=float)
         fp_arr = np.array([r["FP"] for r in year_results], dtype=float)
         fn_arr = np.array([r["FN"] for r in year_results], dtype=float)
         tn_arr = np.array([r["TN"] for r in year_results], dtype=float)
@@ -406,13 +403,13 @@ class WYIOnsetMetrics:
             float(np.nansum(fn_arr) / denom_mr) if denom_mr > 0 else np.nan
         )
 
-        return dict(
-            mae_avg=mae_avg,
-            std_er=std_er,
-            mae_yr=mae_yr,
-            false_alarm=false_alarm,
-            miss_rate=miss_rate,
-        )
+        return {
+            "mae_avg": mae_avg,
+            "std_er": std_er,
+            "mae_yr": mae_yr,
+            "false_alarm": false_alarm,
+            "miss_rate": miss_rate,
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -453,15 +450,17 @@ def compute_wyi_metrics(
     wyi_clim_threshold:
         WYI value below which onset is declared.
 
-    Returns
+    Returns:
     -------
     dict with keys: mae_avg, std_er, mae_yr, false_alarm, miss_rate.
 
-    Notes
+    Notes:
     -----
     Prints a summary to stdout matching the MATLAB script output format.
     """
-    from monsoonbench.onset.wyi_onset import get_wyi_onset  # local import to avoid circularity
+    from monsoonbench.onset.wyi_onset import (
+        get_wyi_onset,  # local import to avoid circularity
+    )
 
     year_results = []
     for year in yr_ar:

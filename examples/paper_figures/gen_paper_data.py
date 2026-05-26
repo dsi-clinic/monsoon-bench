@@ -1,5 +1,7 @@
+"""Functions for generating paper data for paper figures"""
 import os
 import sys
+from pathlib import Path
 
 import numpy as np
 
@@ -30,7 +32,7 @@ def _count_nc_files(directory):
 def _prompt_user_dir(prompt):
     while True:
         path = input(prompt).strip()
-        if os.path.isdir(path):
+        if Path.is_dir(path):
             return path
         print(f"  '{path}' is not a valid directory. Please try again.")
 
@@ -38,7 +40,7 @@ def _prompt_user_dir(prompt):
 def _prompt_user_file(prompt):
     while True:
         path = input(prompt).strip()
-        if os.path.isfile(path):
+        if Path.is_file(path):
             return path
         print(f"  '{path}' is not a valid file. Please try again.")
 
@@ -57,11 +59,11 @@ def _resolve_imd_folder(data_dir):
     for candidate in candidates:
         # Check subdirectories for one with "4" in its name that has >20 .nc files
         subdirs = [
-            os.path.join(candidate, d)
-            for d in os.listdir(candidate)
-            if os.path.isdir(os.path.join(candidate, d))
+            str(p)
+            for p in Path(candidate).iterdir()
+            if p.is_dir()
         ]
-        subdirs_with_4 = [s for s in subdirs if "4" in os.path.basename(s)]
+        subdirs_with_4 = [s for s in subdirs if "4" in Path(s).name]
 
         # Prefer subdirectory with "4"
         for sub in subdirs_with_4:
@@ -110,11 +112,11 @@ def _resolve_model_path(data_dir, keyword, exclude=None, alt_keyword=None):
     chosen = candidates[0]
     # Check for a subdirectory containing "4"
     subdirs = [
-        os.path.join(chosen, d)
-        for d in os.listdir(chosen)
-        if os.path.isdir(os.path.join(chosen, d))
+    str(p)
+    for p in Path(chosen).iterdir()
+    if p.is_dir()
     ]
-    subdirs_with_4 = [s for s in subdirs if "4" in os.path.basename(s)]
+    subdirs_with_4 = [s for s in subdirs if "4" in Path(s).name]
     if subdirs_with_4:
         chosen = subdirs_with_4[0]
     return chosen
@@ -127,11 +129,11 @@ def _resolve_model_path(data_dir, keyword, exclude=None, alt_keyword=None):
 if __name__ == "__main__":
     # 1. Ask for data directory
     data_dir = input("Enter the path to your data directory: ").strip()
-    if not os.path.isdir(data_dir):
+    if not Path.is_dir(data_dir):
         print(f"Error: '{data_dir}' is not a valid directory.")
         sys.exit(1)
 
-    cwd = os.getcwd()
+    cwd = Path.getcwd()
 
     # ------------------------------------------------------------------
     # imd_folder
@@ -167,7 +169,7 @@ if __name__ == "__main__":
     change = input(f"  Default output directory is '{output_dir}'. Do you want to change it? (y/n): ").strip().lower()
     if change == "y":
         output_dir = input("Enter the desired output directory: ").strip()
-    os.makedirs(output_dir, exist_ok=True)
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     config = {
         "years": np.arange(2019, 2025),

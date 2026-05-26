@@ -1,22 +1,19 @@
 """Utility functions for paper figures 1 & 4."""
 
-from matplotlib.colors import BoundaryNorm
 import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
 import numpy as np
 import pandas as pd
 import scipy.io as sio
-import seaborn as sns
 import xarray as xr
+from matplotlib.colors import BoundaryNorm
 
 from examples.paper_figures.plot_config import (
-    params, SMALL_SIZE, MEDIUM_SIZE, LARGE_SIZE
+    LARGE_SIZE,
+    MEDIUM_SIZE,
+    SMALL_SIZE,
+    params,
 )
-
-from examples.paper_figures.utils.data_utils import (
-    YEAR_RANGES, save_data
-)
-
+from examples.paper_figures.utils.data_utils import YEAR_RANGES, save_data
 from monsoonbench.metrics import (
     ClimatologyOnsetMetrics,
     DeterministicOnsetMetrics,
@@ -40,7 +37,8 @@ DEFAULT_WINDOW_BINS: list[tuple[int, int]] = [
 
 def get_clim_window_data(
     config: dict[str, str],
-):
+) -> xr.DataArray:
+    """Function for retrieving climatological data"""
     c_metrics = ClimatologyOnsetMetrics()
 
     clim_data = []
@@ -88,7 +86,6 @@ def get_model_window_data(
         config: Dictionary of configuration parameters.
         lower_window: Lower bound of the verification window.
     """
-
     upper_window = lower_window + 5
     metrics = ProbabilisticOnsetMetrics()
     d_metrics = DeterministicOnsetMetrics()
@@ -152,7 +149,8 @@ def get_model_window_data(
 def load_fig3_data(
     config: dict[str, str],
     model_paths: dict[str, str],
-):
+) -> None:
+    """Function for loading data for figure 3."""
     c_metrics = ClimatologyOnsetMetrics()
     clim_data = get_clim_window_data(config)
     clim_window_data = {}
@@ -214,7 +212,7 @@ def load_fig3_data(
 # ================================================
 
 # Load data from MAT file
-def load_weekly_data(data_dir: str):
+def load_weekly_data(data_dir: str) -> tuple:
     """Load weekly deterministic scores from MAT file"""
     try:
         # Update this path to your actual MAT file location
@@ -222,10 +220,10 @@ def load_weekly_data(data_dir: str):
         data = sio.loadmat(weekly_file)
         
         # Extract data - adjust variable names based on your MAT file structure
-        mae_cmz = data['mae_cmz']  # Shape should be (6, 8) for 6 time periods, 8 models
-        far_cmz = data['far_cmz']  # Shape should be (6, 8)
-        mr_cmz = data['mr_cmz']    # Shape should be (4, 8) for 4 weeks
-        std_er = data['std_er']    # Standard errors for MAE
+        mae_cmz = data["mae_cmz"]  # Shape should be (6, 8) for 6 time periods, 8 models
+        far_cmz = data["far_cmz"]  # Shape should be (6, 8)
+        mr_cmz = data["mr_cmz"]    # Shape should be (4, 8) for 4 weeks
+        std_er = data["std_er"]    # Standard errors for MAE
         
         return mae_cmz, far_cmz, mr_cmz, std_er
     
@@ -235,9 +233,8 @@ def load_weekly_data(data_dir: str):
         return mae_cmz, far_cmz, mr_cmz, std_er
 
 
-def create_climatology_difference_heatmap(data_dir: str):
+def create_climatology_difference_heatmap(data_dir: str) -> plt.Figure:
     """Create a red-blue heatmap showing difference from climatology for each model"""
-    
     panel_width = 0.5
     tick_length = 2.5
     tick_width = 1
@@ -248,11 +245,11 @@ def create_climatology_difference_heatmap(data_dir: str):
     mae_cmz, far_cmz, mr_cmz, std_er = load_weekly_data(data_dir)
     
     # Model names (excluding climatology since we're comparing against it)
-    model_names = ['IFS*', 'AIFS$^{\dagger}$', 'FuXi', 'GraphCast', 
-                'GenCast', 'FuXi-S2S*', 'NGCM']
+    model_names = ["IFS*", "AIFS$^{\dagger}$", "FuXi", "GraphCast", 
+                "GenCast", "FuXi-S2S*", "NGCM"]
     
     # Week labels
-    week_labels = ['1-5', '6-10', '11-15', '16-20', '21-25', '26-30']
+    week_labels = ["1-5", "6-10", "11-15", "16-20", "21-25", "26-30"]
     
     # Calculate differences from climatology (climatology is index 0)
     # Positive values mean worse than climatology, negative means better
@@ -264,14 +261,6 @@ def create_climatology_difference_heatmap(data_dir: str):
     # Create figure with three subplots
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(8, 3))
     
-    # Common colormap settings - using RdBu where blue=negative/better, red=positive/worse
-    vmin_mae = -4  # Adjust based on your data range
-    vmax_mae = 4
-    vmin_far = -20
-    vmax_far = 20
-    vmin_mr = -60
-    vmax_mr = 60
-
     mae_boundaries = np.arange(-4,4.5,0.5)
     mae_norm = BoundaryNorm(mae_boundaries, plt.cm.RdBu_r.N)
     far_boundaries = np.arange(-18,19,3)
@@ -280,82 +269,82 @@ def create_climatology_difference_heatmap(data_dir: str):
     mr_norm = BoundaryNorm(mr_boundaries, plt.cm.RdBu_r.N)
 
     # MAE difference heatmap
-    im1 = ax1.imshow(mae_diff.T, cmap='RdBu_r', aspect='auto', 
-                    norm=mae_norm, interpolation='nearest')
+    im1 = ax1.imshow(mae_diff.T, cmap="RdBu_r", aspect="auto", 
+                    norm=mae_norm, interpolation="nearest")
     ax1.set_xticks(range(len(week_labels)))
     ax1.set_xticklabels(week_labels, fontsize=LARGE_SIZE)
     ax1.set_yticks(range(len(model_names)))
     ax1.set_yticklabels(model_names, fontsize=LARGE_SIZE)
     # Make y-ticks go outside the panel
-    ax1.tick_params(axis='y', direction='out', length=tick_length, width=tick_width)
-    ax1.tick_params(axis='y', right=False)
-    ax1.tick_params(axis='x', top=False)
-    ax1.set_title('$\Delta$MAE (days)', fontsize=MEDIUM_SIZE, fontweight='normal')
+    ax1.tick_params(axis="y", direction="out", length=tick_length, width=tick_width)
+    ax1.tick_params(axis="y", right=False)
+    ax1.tick_params(axis="x", top=False)
+    ax1.set_title("$\Delta$MAE (days)", fontsize=MEDIUM_SIZE, fontweight="normal")
     
     # Add text annotations for MAE
     for i in range(len(model_names)):
         for j in range(len(week_labels)):
             value = mae_diff[j, i]
-            text_color = 'white' if abs(value) > 2.5 else 'black'
-            ax1.text(j, i, f'{value:.1f}', ha="center", va="center", 
-                    color=text_color, fontsize=SMALL_SIZE, fontweight='normal')
+            text_color = "white" if abs(value) > 2.5 else "black"
+            ax1.text(j, i, f"{value:.1f}", ha="center", va="center", 
+                    color=text_color, fontsize=SMALL_SIZE, fontweight="normal")
     
     # Add horizontal colorbar for MAE (bottom, 75% width, closer to panel)
-    cbar1 = plt.colorbar(im1, ax=ax1, orientation='horizontal', 
+    cbar1 = plt.colorbar(im1, ax=ax1, orientation="horizontal", 
                         pad=cb_pad, shrink=0.75, aspect=cbar_aspect, boundaries=mae_boundaries)
     #cbar1.set_label('Days (Blue = Better, Red = Worse)', fontsize=SMALL_SIZE)
     cbar1.ax.tick_params(labelsize=SMALL_SIZE)
     cbar1.ax.tick_params(length=tick_length,width = tick_width)
     cbar1.minorticks_off()
     # FAR difference heatmap
-    im2 = ax2.imshow(far_diff.T, cmap='RdBu_r', aspect='auto', 
-                    norm=far_norm, interpolation='nearest')
+    im2 = ax2.imshow(far_diff.T, cmap="RdBu_r", aspect="auto", 
+                    norm=far_norm, interpolation="nearest")
     ax2.set_xticks(range(len(week_labels)))
     ax2.set_xticklabels(week_labels, fontsize=LARGE_SIZE)
     ax2.set_yticks(range(len(model_names)))
     ax2.set_yticklabels([])  # Remove y-tick labels for panel 2
     # Hide y-ticks for panel 2
-    ax2.tick_params(axis='y', left=False, right=False)
-    ax2.tick_params(axis='x', top=False)
-    ax2.set_title('$\Delta$ FAR (\%)', fontsize=MEDIUM_SIZE, fontweight='normal')
-    ax2.set_xlabel('Forecast window (days)', fontsize=MEDIUM_SIZE)
+    ax2.tick_params(axis="y", left=False, right=False)
+    ax2.tick_params(axis="x", top=False)
+    ax2.set_title("$\Delta$ FAR (\%)", fontsize=MEDIUM_SIZE, fontweight="normal")
+    ax2.set_xlabel("Forecast window (days)", fontsize=MEDIUM_SIZE)
     # Add text annotations for FAR
     for i in range(len(model_names)):
         for j in range(len(week_labels)):
             value = far_diff[j, i]
-            text_color = 'white' if abs(value) > 15 else 'black'
-            ax2.text(j, i, f'{value:.1f}', ha="center", va="center", 
-                    color=text_color, fontsize=SMALL_SIZE, fontweight='normal')
+            text_color = "white" if abs(value) > 15 else "black"
+            ax2.text(j, i, f"{value:.1f}", ha="center", va="center", 
+                    color=text_color, fontsize=SMALL_SIZE, fontweight="normal")
     
     # Add horizontal colorbar for FAR (bottom, 75% width, closer to panel)
-    cbar2 = plt.colorbar(im2, ax=ax2, orientation='horizontal', 
+    cbar2 = plt.colorbar(im2, ax=ax2, orientation="horizontal", 
                         pad=cb_pad, shrink=0.75, aspect=cbar_aspect, boundaries=far_boundaries)
-    cbar2.set_label('(Blue = Better, Red = Worse)', fontsize=SMALL_SIZE)
+    cbar2.set_label("(Blue = Better, Red = Worse)", fontsize=SMALL_SIZE)
     cbar2.ax.tick_params(labelsize=SMALL_SIZE)
     cbar2.ax.tick_params(length=tick_length,width = tick_width)
     cbar2.minorticks_off()
     # MR difference heatmap
-    im3 = ax3.imshow(mr_diff.T, cmap='RdBu_r', aspect='auto', 
-                    norm=mr_norm, interpolation='nearest')
+    im3 = ax3.imshow(mr_diff.T, cmap="RdBu_r", aspect="auto", 
+                    norm=mr_norm, interpolation="nearest")
     ax3.set_xticks(range(len(week_labels)))
     ax3.set_xticklabels(week_labels, fontsize=LARGE_SIZE)
     ax3.set_yticks(range(len(model_names)))
     ax3.set_yticklabels([])  # Remove y-tick labels for panel 3
     # Hide y-ticks for panel 3
-    ax3.tick_params(axis='y', left=False, right=False)
-    ax3.tick_params(axis='x', top=False)
-    ax3.set_title('$\Delta$ MR (\%)', fontsize=MEDIUM_SIZE, fontweight='normal')
+    ax3.tick_params(axis="y", left=False, right=False)
+    ax3.tick_params(axis="x", top=False)
+    ax3.set_title("$\Delta$ MR (\%)", fontsize=MEDIUM_SIZE, fontweight="normal")
     
     # Add text annotations for MR
     for i in range(len(model_names)):
         for j in range(len(week_labels)):
             value = mr_diff[j, i]
-            text_color = 'white' if abs(value) > 50 else 'black'
-            ax3.text(j, i, f'{value:.1f}', ha="center", va="center", 
-                    color=text_color, fontsize=SMALL_SIZE, fontweight='normal')
+            text_color = "white" if abs(value) > 50 else "black"
+            ax3.text(j, i, f"{value:.1f}", ha="center", va="center", 
+                    color=text_color, fontsize=SMALL_SIZE, fontweight="normal")
     
     # Add horizontal colorbar for MR (bottom, 75% width, closer to panel)
-    cbar3 = plt.colorbar(im3, ax=ax3, orientation='horizontal', 
+    cbar3 = plt.colorbar(im3, ax=ax3, orientation="horizontal", 
                         pad=cb_pad, shrink=0.75, aspect=cbar_aspect, boundaries=mr_boundaries)
     #cbar3.set_label('Percentage (Blue = Better, Red = Worse)', fontsize=SMALL_SIZE)
     cbar3.ax.tick_params(labelsize=SMALL_SIZE)
@@ -363,7 +352,7 @@ def create_climatology_difference_heatmap(data_dir: str):
     cbar3.minorticks_off()
     # Style all axes
     for ax in [ax1, ax2, ax3]:
-        ax.tick_params(axis='x', which='major', labelsize=SMALL_SIZE,
+        ax.tick_params(axis="x", which="major", labelsize=SMALL_SIZE,
                     length=2, width=0.5)
         # Set spine width
         for spine in ax.spines.values():
@@ -373,13 +362,14 @@ def create_climatology_difference_heatmap(data_dir: str):
     plt.subplots_adjust(bottom=0.15, top=0.9, wspace=0.05)
     
     # Save figure
-    plt.savefig('fig3.png', dpi=600, bbox_inches='tight')
-    plt.savefig('fig3.pdf', dpi=600, bbox_inches='tight')
+    plt.savefig("fig3.png", dpi=600, bbox_inches="tight")
+    plt.savefig("fig3.pdf", dpi=600, bbox_inches="tight")
 
     return fig
 
 
-def make_fig3(data_dir: str):
+def make_fig3(data_dir: str) -> plt.Figure:
+    """Function to generate figure 3"""
     # Create the heatmap figure
     heatmap_fig = create_climatology_difference_heatmap(data_dir)
     return heatmap_fig

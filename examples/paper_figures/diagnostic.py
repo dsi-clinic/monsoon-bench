@@ -1,18 +1,18 @@
 """Functions for checking generated paprer figures against published paper figures"""
 
-import pandas as pd
+import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
 import numpy as np
-import xarray as xr
+import pandas as pd
 import scipy.io as sio
+import xarray as xr
+from matplotlib.gridspec import GridSpec
 
 from monsoonbench.spatial import get_india_outline
 
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
-from matplotlib.gridspec import GridSpec
 
-
-def package_csv_data_as_grid(csv_data, models_list, lat, lon):
+def package_csv_data_as_grid(csv_data, models_list, lat, lon) -> list:
+    """Function for packaging csv data as spatial dataarray"""
     ret = []
 
     empty_grid = np.full((8, 9), np.nan)
@@ -30,7 +30,7 @@ def package_csv_data_as_grid(csv_data, models_list, lat, lon):
                 model_da = empty_da.copy()
                 model_data = h_data.loc[h_data["dataset"] == model]
 
-                for ind, row in model_data.iterrows():
+                for _ind, row in model_data.iterrows():
                     val_to_assign = row[val]
                     lat_idx = np.where(lat == row["lat"])[0][0]
                     lon_idx = np.where(lon == row["lon"])[0][0]
@@ -49,7 +49,8 @@ def package_csv_data_as_grid(csv_data, models_list, lat, lon):
     return ret
 
 
-def compare_fig6_grids(paper_grid, recreated_grid):
+def compare_fig6_grids(paper_grid, recreated_grid) -> dict:
+    """Function for returning difference between generated and paper fig6 data"""
     out = {
         "fair_brier_skill": {15: [], 30: []},
         "fair_rps_skill":   {15: [], 30: []}
@@ -82,7 +83,8 @@ def create_fig6_style_diff_figure(
     models,
     shpfile_path,
     cmap="RdBu_r",
-):
+) -> plt.figure:
+    """Function for creating difference figure between generated fig6 and paper fig6"""
     row_configs = [
         ("fair_brier_skill", 15, "(a) Brier Skill Score: 15-day forecast"),
         ("fair_brier_skill", 30, "(b) Brier Skill Score: 30-day forecast"),
@@ -218,9 +220,11 @@ def create_fig6_style_diff_figure(
 def full_fig6_diagnostic(csv_path,
                          gridded_data,
                          shp_file_path,
-                         model_lists = ["ifss2s", "fuxis2s", "ngcm"],
-                         lon = np.arange(68, 101, 4),
-                         lat = np.arange(8, 37, 4)):
+                         ) -> tuple:
+    """Full pipeline to compare generated fig6 to paper fig 6"""
+    model_lists = ["ifss2s", "fuxis2s", "ngcm"]
+    lon = np.arange(68, 101, 4)
+    lat = np.arange(8, 37, 4)
     csv_data = pd.read_csv(csv_path)
     raja_fig_6_data_grid = package_csv_data_as_grid(
     csv_data,
@@ -246,39 +250,39 @@ def _load_mat_data(file_path, label):
     print(f"Loading {label} data...")
     data = sio.loadmat(file_path)
 
-    print(f"Available variables in {label} file:", [key for key in data.keys() if not key.startswith('__')])
+    print(f"Available variables in {label} file:", [key for key in data.keys() if not key.startswith("__")])
 
-    if 'lon' in data:
-        lon = data['lon'].flatten()
-        lat = data['lat'].flatten()
+    if "lon" in data:
+        lon = data["lon"].flatten()
+        lat = data["lat"].flatten()
     else:
         print(f"Warning: Coordinates not found in {label} MAT file, using default range")
         lon = np.arange(70, 101, 4)
         lat = np.arange(8, 39, 4)
 
     return {
-        'lon': lon,
-        'lat': lat,
-        'mae_avg': data['mae_avg'],
-        'mae_cmz_mean': data['mae_cmz_mean'],
-        'std_er': data['std_er'],
-        'false_alarm': data['false_alarm'],
-        'far_cmz_mean': data['far_cmz_mean'],
-        'miss_rate': data['miss_rate'],
-        'mr_cmz_mean': data['mr_cmz_mean'],
+        "lon": lon,
+        "lat": lat,
+        "mae_avg": data["mae_avg"],
+        "mae_cmz_mean": data["mae_cmz_mean"],
+        "std_er": data["std_er"],
+        "false_alarm": data["false_alarm"],
+        "far_cmz_mean": data["far_cmz_mean"],
+        "miss_rate": data["miss_rate"],
+        "mr_cmz_mean": data["mr_cmz_mean"],
     }
 
-def load_spatial_data_15_day(file_path):
-    return _load_mat_data(file_path, '15-day')
+def load_spatial_data_15_day(file_path) -> dict:
+    """Function for loading spatial data from mat"""
+    return _load_mat_data(file_path, "15-day")
 
-def load_spatial_data_30_day(file_path):
-    return _load_mat_data(file_path, '30-day')
+def load_spatial_data_30_day(file_path) -> dict:
+    """Function for loading spatial data from mat"""
+    return _load_mat_data(file_path, "30-day")
 
 
-def package_gridded_data(mae, far, mr, lat, lon, models):
-    """
-    Convert (lat, lon, model) arrays into compare_grids format.
-    """
+def package_gridded_data(mae, far, mr, lat, lon, models) -> dict:
+    """Convert (lat, lon, model) arrays into compare_grids format."""
     n_models = len(models) # <-- FIX
 
     return {
@@ -289,7 +293,8 @@ def package_gridded_data(mae, far, mr, lat, lon, models):
         "lon": lon
     }
 
-def compare_grids(paper_grid, recreated_grid, lat, lon):
+def compare_grids(paper_grid, recreated_grid, lat, lon) -> dict:
+    """Function to get difference between data grids"""
     out = { "mae": [], "far": [], "mr": [], "lat": lat, "lon": lon }
     for metric in paper_grid.keys():
         if metric != "lat" and metric != "lon":
@@ -309,11 +314,8 @@ def create_8_panel_diff_figure(
     metric="mae",
     cmap="RdBu_r",
     symmetric=True,
-):
-    """
-    8-panel (4x2) difference map for a SINGLE metric.
-    """
-
+) -> plt.Figure:
+    """8-panel (4x2) difference map for a SINGLE metric."""
     grids = diff_dict[metric]
     n_models = len(grids)
 
@@ -378,12 +380,12 @@ def create_8_panel_diff_figure(
                 val = diff.values[j, k]
                 if np.isnan(val):
                     continue
-                text_color = 'black' if -0.1 <= val <= 0.1 else 'white'
+                text_color = "black" if -0.1 <= val <= 0.1 else "white"
                 ax.text(
-                    lon[k], lat[j], f'{val:.2f}',
+                    lon[k], lat[j], f"{val:.2f}",
                     color=text_color,
                     fontsize=3,
-                    ha='center', va='center',
+                    ha="center", va="center",
                     transform=ccrs.PlateCarree()
                 )
 
@@ -391,7 +393,7 @@ def create_8_panel_diff_figure(
             india_boundaries = get_india_outline(shp_file_path)
             for boundary in india_boundaries:
                 india_lon, india_lat = boundary
-                ax.plot(india_lon, india_lat, color='black', linewidth=1)
+                ax.plot(india_lon, india_lat, color="black", linewidth=1)
 
         # FIXED: add padding so titles don't collide
         ax.set_title(models[i], fontsize=7, pad=8)
@@ -437,7 +439,7 @@ def create_8_panel_diff_figure(
         colorbar_height
     ])
 
-    cbar = fig.colorbar(images[0], cax=cax, orientation='vertical')
+    cbar = fig.colorbar(images[0], cax=cax, orientation="vertical")
     cbar.set_label(f"{metric.upper()} difference")
 
     cbar.ax.tick_params(length=2, width=1)
@@ -452,9 +454,11 @@ def full_spatial_fig_diagnostic(file_path,
                                 label,
                                 gridded_data,
                                 shp_file_path,
-                                model_str=['Climatology', 'IFS', 'AIFS',
-                                           'FuXi', 'Graphcast', 'GenCast', 'FuXi-S2S', 'NGCM'],
-                                ):
+                                ) -> tuple[plt.Figure]:
+    """Function for comparing generated figs 7-12 to paper figs"""
+    model_str=["Climatology", "IFS", "AIFS",
+               "FuXi", "Graphcast", "GenCast", "FuXi-S2S", "NGCM"]
+    
     if label not in ("15-day", "30-day"):
         raise ValueError("label must be '15-day' or '30-day'")
 
