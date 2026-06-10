@@ -9,7 +9,6 @@ from monsoonbench.metrics.cmz_window_metrics import (
 )
 from monsoonbench.metrics.deterministic import DeterministicOnsetMetrics
 from monsoonbench.metrics.probabilistic import ProbabilisticOnsetMetrics
-from monsoonbench.metrics.wyi_metrics import WYIOnsetMetrics, compute_wyi_metrics
 
 __all__ = [
     "OnsetMetricsBase",
@@ -19,6 +18,4 @@ __all__ = [
     "WindowScoringConfig",
     "score_window_contingency",
     "compute_cmz_window_metrics",
-    "WYIOnsetMetrics",
-    "compute_wyi_metrics",
 ]

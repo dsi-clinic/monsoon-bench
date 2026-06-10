@@ -354,108 +354,6 @@ def save_data(mat_dict: dict[str, np.ndarray], output_dir: str, save_path: str) 
     print("Saved to:", out_path)
     return
 
-
-def load_wyi(output_dir: str) -> None:
-    """Load WYI data from a .mat file.
-
-    Args:
-        output_dir: Directory to save the WYI data to.
-    """
-    model_str = np.array(
-        [["clim"], ["ifs"], ["aifs"], ["fuxi"], ["graphcast"], ["gencast"], ["ngcm51"]]
-    )
-
-    alt_model_str = np.array(
-        [["clim"], ["ifs"], ["aifs"], ["fuxi"], ["graphcast"], ["ngcm51"]]
-    )
-
-    wyi_15day = {
-        "false_alarm": np.array(
-            [[0.5434, 0.1481, 0.2333, 0.3030, 0.2000, 0.1666, 0.1612]]
-        ),
-        "mae_avg": np.array([[6.1666, 1.8000, 2.3435, 4.7546, 2.1712, 1.9861, 1.6202]]),
-        "miss_rate": np.array(
-            [[0.3333, 0.1739, 0.0740, 0.1851, 0.1851, 0.1481, 0.1111]]
-        ),
-        "model_str": model_str,
-        "std_er": np.array([[0.8724, 1.0588, 1.3824, 1.9608, 1.1938, 1.2578, 0.9984]]),
-    }
-
-    wyi_30day = {
-        "false_alarm": np.array(
-            [[1.0000, 0.5000, 0.8571, 0.7500, 0.5000, 0.4285, 0.7000]]
-        ),
-        "mae_avg": np.array([[6.1666, 4.3766, 5.1111, 5.9666, 4.6694, 4.1500, 4.0666]]),
-        "miss_rate": np.array(
-            [[0.1224, 0.0476, 0.0408, 0.0204, 0.0408, 0.0816, 0.0204]]
-        ),
-        "model_str": model_str,
-        "std_er": np.array([[0.8724, 1.6206, 1.9510, 2.1287, 2.0323, 1.6568, 0.8027]]),
-    }
-
-    wyi_15day_extended = {
-        "false_alarm": np.array(
-            [[0.4112, 0.1481, 0.2870, 0.4298, 0.3425, 0.2056, 0.2545]]
-        ),
-        "mae_avg": np.array([[4.7000, 1.8000, 3.1356, 4.7063, 3.3155, 2.6904, 2.6446]]),
-        "miss_rate": np.array(
-            [[0.2413, 0.1739, 0.1264, 0.1034, 0.1264, 0.0919, 0.0689]]
-        ),
-        "model_str": model_str,
-        "std_er": np.array([[0.7884, 1.0588, 0.6182, 0.8258, 0.6061, 0.5977, 0.5668]]),
-    }
-
-    wyi_30day_extended = {
-        "false_alarm": np.array(
-            [[1.0000, 0.5000, 0.8709, 0.9210, 0.8484, 0.6923, 0.7777]]
-        ),
-        "mae_avg": np.array([[4.7000, 4.3766, 5.1447, 7.1400, 6.6508, 4.1158, 4.1641]]),
-        "miss_rate": np.array(
-            [[0.0848, 0.0476, 0.0606, 0.0060, 0.0121, 0.0484, 0.0181]]
-        ),
-        "model_str": model_str,
-        "std_er": np.array([[0.7884, 1.6206, 0.7717, 1.0998, 1.2267, 0.7091, 0.8559]]),
-    }
-
-    wyi_15day_common = {
-        "false_alarm": np.array([[0.3894, 0.1250, 0.1621, 0.3589, 0.1126, 0.1600]]),
-        "mae_avg": np.array([[4.4705, 1.9068, 1.6950, 3.2616, 1.3737, 1.7058]]),
-        "miss_rate": np.array([[0.2531, 0.2151, 0.1265, 0.0886, 0.1645, 0.1898]]),
-        "model_str": alt_model_str,
-        "std_er": np.array([[0.6812, 0.5090, 0.4903, 0.7105, 0.4258, 0.3777]]),
-    }
-
-    wyi_30day_common = {
-        "false_alarm": np.array([[1.0000, 0.6666, 0.7692, 0.8500, 0.9000, 0.8888]]),
-        "mae_avg": np.array([[5.2222, 4.1462, 3.4617, 6.4148, 4.3156, 4.5166]]),
-        "miss_rate": np.array([[0.0507, 0.0652, 0.0434, 0.0507, 0.0144, 0.0434]]),
-        "model_str": alt_model_str,
-        "std_er": np.array([[0.9886, 0.7309, 0.7843, 1.0687, 0.8023, 0.6104]]),
-    }
-
-    wyi_data = [
-        wyi_15day,
-        wyi_30day,
-        wyi_15day_extended,
-        wyi_30day_extended,
-        wyi_15day_common,
-        wyi_30day_common,
-    ]
-
-    wyi_paths = [
-        "wyi_onset_deterministic_metrics_15day_2019_2024",
-        "wyi_onset_deterministic_metrics_30day_2019_2024",
-        "wyi_onset_deterministic_metrics_15day_1965_1978_2019_2024_with_gencast",
-        "wyi_onset_deterministic_metrics_30day_1965_1978_2019_2024_with_gencast",
-        "wyi_onset_deterministic_metrics_15day_2004_2021",
-        "wyi_onset_deterministic_metrics_30day_2004_2021",
-    ]
-
-    for wyi_dct, fp in zip(wyi_data, wyi_paths):
-        save_data(wyi_dct, output_dir, fp)
-    return
-
-
 def load_fig_1_4_data(model_paths: dict[str, str], config: dict[str, str]) -> None:
     """Load data for figures 1 and 4.
 
@@ -541,7 +439,4 @@ def load_fig_1_4_data(model_paths: dict[str, str], config: dict[str, str]) -> No
         clim_onset_30_cm, config["common_years"], 30
     )    
     save_data(md_30_cm, config["output_dir"], "deterministic_scores_30_day_2004_2021")
-
-    print("Saving WYI Data...")
-    load_wyi(config["output_dir"])
     return
